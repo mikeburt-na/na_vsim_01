@@ -1,0 +1,27 @@
+#######################################################################################
+#   
+#   Author      :   Paavan
+#   Date        :   15 Sept 2021
+#   
+#   Description :   Add RDM to Guest VM
+#   
+#   Dependencies:  
+#                   
+#######################################################################################
+- name: Remove RDM from ESXi Host
+  remove_rdm_disks: 
+    VM_NAME: "{{ environments[refresh_env]['vmware_vm_name'] }}"              
+    HOST_NAME: "{{ vcenter_hostname }}"
+    USER_NAME: "{{ vcenter_username }}"
+    PASSWORD: "{{ vcenter_password }}"
+    DISK_UUID: "{{ uuid.disk_uid }}"
+  loop: "{{ delete_final_device_name_list }}"
+  loop_control:
+    loop_var: uuid
+    label: "{{ uuid.disk_uid }}"
+  no_log: "{{ disable_log_output }}"
+  register: remove_rdm
+- name: Debug Remove RDM from ESXi Host
+  debug: var=remove_rdm
+  when:                         
+    - ansible_verbosity > 0

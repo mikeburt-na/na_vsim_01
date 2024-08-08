@@ -1,0 +1,35 @@
+---
+- hosts: localhost
+  name: DB Backup Volume Info Test
+  gather_facts: false
+  vars_files:
+    - /home/CTS_NetApp_Python/Ansible/DB_Backup/var/@var.yml
+  tasks:
+    - name: Aggregate Search Volume Placement
+      volume_placement:
+        hostname: "{{ na_hostname }}"
+        username: "{{ na_username }}"
+        password: "{{ na_password }}"
+        debug: false
+        https: true
+        validate_certs: false
+        #volume_name: "{{  }}"
+        svm_name: "{{ vserver_name }}"
+        size_mb: 10000 * 1024
+        weight_volume_count: 3
+        weight_used_pct: 1
+        weight_provisioned_pct: 2
+        weight_available_space: 4
+        #threshold_volume_count:
+        threshold_used_pct: 85
+        threshold_provisioned_pct: 200
+        #threshold_available_space:
+        #exclude_name_regex: 
+        #include_name_regex: 
+        #exclude_node_regex: 
+        #include_node_regex: 
+        #names_to_exclude: 
+      register: testout
+    - name: Dump Test Output
+      debug:
+        msg: "{{ testout }}"

@@ -1,0 +1,49 @@
+---
+- hosts: localhost
+  name: DB Backup Volume Create
+  gather_facts: false
+  collections:
+    - netapp.ontap
+  vars:
+    login: &login
+      hostname: "{{ na_hostname }}"
+      username: "{{ na_username }}"
+      password: "{{ na_password }}"
+      https: true
+      validate_certs: false
+    vserver: "{{ vserver_name }}"
+    aggr: "{{ aggr_name }}"
+    vol_img_base: "{{ client_name }}_{{ db_name }}_{{ vol_type_img }}01_"
+    vol_log_base: "{{ client_name }}_{{ db_name }}_{{ vol_type_log }}01_"
+  vars_files:
+    - /home/CTS_NetApp_Python/Ansible/DB_Backup/var/@var.yml
+  tasks:
+    - name: IMG and LOG Volume Size_Count Info
+      db_backup_vol_info:
+        DB_SIZE: "{{ db_size }}"
+        MAX_VOL_SIZE: "{{ max_vol_size }}"
+      register: dbbackup_vol_info
+    - name: IMG Volume Create
+      na_ontap_volume:
+        state: present
+        name: "{{ vol_img_base }}{{ '%03d' | format(item|int) }}"
+        vserver: "{{ vserver }}"
+        aggregate_name: "{{ aggr }}"
+        size: "{{ dbbackup_vol_info.volume_size_img }}"
+        size_unit: gb
+        policy: default
+        junction_path: "/{{ vol_img_base }}{{ '%03d' | format(item|int) }}"
+        <<: *login
+      loop: "{{ range(1, dbbackup_vol_info.volume_count_img + 1) | list }}"
+    - name: LOG Volume Create
+      na_ontap_volume:
+        state: present
+        name: "{{ vol_log_base }}{{ '%03d' | format(item|int) }}"
+        vserver: "{{ vserver }}"
+        aggregate_name: "{{ aggr }}"
+        size: "{{ dbbackup_vol_info.volume_size_log }}"
+        size_unit: gb
+        policy: default
+        junction_path: "/{{ vol_log_base }}{{ '%03d' | format(item|int) }}"
+        <<: *login
+      loop: "{{ range(1, dbbackup_vol_info.volume_count_log + 1) | list }}"

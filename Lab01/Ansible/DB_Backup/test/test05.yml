@@ -1,0 +1,53 @@
+---
+- hosts: localhost
+  name: DB Backup Volume Create
+  gather_facts: false
+  collections:
+    - netapp.ontap
+  vars:
+    login: &login
+      hostname: "{{ na_hostname }}"
+      username: "{{ na_username }}"
+      password: "{{ na_password }}"
+      https: true
+      validate_certs: false
+    vserver: "{{ vserver_name }}"
+    aggr: "{{ aggr_name }}"
+    vol_base: "{{ client_name }}_{{ db_name }}_IMG01_"
+    vols: []  # Initialize an empty list for volume counts
+  vars_files:
+    - /home/CTS_NetApp_Python/Ansible/DB_Backup/var/@var.yml
+    - /home/CTS_NetApp_Python/Ansible/DB_Backup/var/@var_volinfo.yml
+  tasks:
+    - name: Gather volume info for base volume
+      na_ontap_info:
+        gather_subset: volume_info
+        query:
+          volume-attributes:
+            volume-id-attributes:
+              name: "{{ vol_base }}*"
+        <<: *login
+      register: ontap
+
+    - name: Create array of existing counts
+      set_fact:
+        vols: "{{ vols + [ontap.ontap_info.volume_info[item].volume_id_attributes.name.split('_')[3] | int] }}"
+      loop: "{{ ontap.ontap_info.volume_info | list }}"
+      when: item.volume_id_attributes.name is search(vol_base + '\\d{4}')
+
+    - name: Determine highest created count
+      set_fact:
+        start: "{{ vols | default([]) | max | default(0) }}"
+
+    - name: Volume Create
+      na_ontap_volume:
+        state: present
+        name: "{{ vol_base }}_{{ '%04d' | format(item|int) }}"
+        vserver: "{{ vserver }}"
+        aggregate_name: "{{ aggr }}"
+        size: "{{ volume_size }}"
+        size_unit: gb
+        policy: default
+        junction_path: "{{ vol_base }}_{{ '%04d' | format(item|int) }}"
+        <<: *login
+      loop: "{{ range(start + 1, start + volume_count + 1) | list }}"

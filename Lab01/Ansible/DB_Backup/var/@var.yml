@@ -1,0 +1,14 @@
+# Ansible varible file
+
+na_hostname: 
+na_username: 
+na_password: 
+
+vserver_name: 
+aggr_name: 
+client_name: 
+db_name: P0001
+vol_type_log: LOG
+vol_type_img: IMG
+db_size: 40000
+max_vol_size: 10000
