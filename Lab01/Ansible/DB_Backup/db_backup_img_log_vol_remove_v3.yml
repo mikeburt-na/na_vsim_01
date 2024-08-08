@@ -1,0 +1,58 @@
+---
+- hosts: localhost
+  name: DB Backup Volume Create
+  gather_facts: false
+  collections:
+    - netapp.ontap
+  vars:
+    login: &login
+      hostname: "{{ na_hostname }}"
+      username: "{{ na_username }}"
+      password: "{{ na_password }}"
+      https: true
+      validate_certs: false
+    vserver: "{{ vserver_name }}"
+    aggr: "{{ aggr_name }}"
+    vol_img_base: "{{ client_name }}_{{ db_name }}_{{ vol_type_img }}01_"
+    vol_log_base: "{{ client_name }}_{{ db_name }}_{{ vol_type_log }}01_"
+  vars_files:
+    - var/@var.yml
+  tasks:
+    - name: Determine Volume Size and Count Per DB Size
+      debug:
+        msg: "Database Size: {{ db_size }} - Max Volume Size: {{ max_vol_size }}"
+    - name: Calculating Volume Size and Count for Both Image and Log Backup Volumes
+      db_backup_vol_info:
+        DB_SIZE: "{{ db_size }}"
+        MAX_VOL_SIZE: "{{ max_vol_size }}"
+      register: dbbackup_vol_info
+    - name: Image Volume Calculations from DB Size and Max Volume Size
+      debug:
+        msg: "Image Volume Size: {{ dbbackup_vol_info.volume_size_img }} - Volume Count: {{ dbbackup_vol_info.volume_count_img }}"
+    - name: IMG Volume Provisioning
+      na_ontap_volume:
+        state: absent
+        name: "{{ vol_img_base }}{{ '%03d' | format(item|int) }}"
+        vserver: "{{ vserver }}"
+        aggregate_name: "{{ aggr }}"
+        size: "{{ dbbackup_vol_info.volume_size_img }}"
+        size_unit: gb
+        policy: default
+        junction_path: "/{{ vol_img_base }}{{ '%03d' | format(item|int) }}"
+        <<: *login
+      loop: "{{ range(1, dbbackup_vol_info.volume_count_img + 1) | list }}"
+    - name: Log Volume Calculations from DB Size and Max Volume Size
+      debug:
+        msg: "Log Volume Size: {{ dbbackup_vol_info.volume_size_log }} - Volume Count: {{ dbbackup_vol_info.volume_count_log }}"
+    - name: LOG Volume Provisioning
+      na_ontap_volume:
+        state: absent
+        name: "{{ vol_log_base }}{{ '%03d' | format(item|int) }}"
+        vserver: "{{ vserver }}"
+        aggregate_name: "{{ aggr }}"
+        size: "{{ dbbackup_vol_info.volume_size_log }}"
+        size_unit: gb
+        policy: default
+        junction_path: "/{{ vol_log_base }}{{ '%03d' | format(item|int) }}"
+        <<: *login
+      loop: "{{ range(1, dbbackup_vol_info.volume_count_log + 1) | list }}"
