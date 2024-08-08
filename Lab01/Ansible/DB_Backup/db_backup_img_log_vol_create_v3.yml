@@ -21,7 +21,7 @@
     - name: Determine Volume Size and Count Per DB Size
       debug:
         msg: "Database Size: {{ db_size }} - Max Volume Size: {{ max_vol_size }}"
-    - name: IMG and LOG Volume Size_Count Info
+    - name: Calculating Volume Size and Count for Both Image and Log Backup Volumes
       db_backup_vol_info:
         DB_SIZE: "{{ db_size }}"
         MAX_VOL_SIZE: "{{ max_vol_size }}"
@@ -29,7 +29,7 @@
     - name: Image Volume Calculations from DB Size and Max Volume Size
       debug:
         msg: "Image Volume Size: {{ dbbackup_vol_info.volume_size_img }} - Volume Count: {{ dbbackup_vol_info.volume_count_img }}"
-    - name: IMG Volume Create
+    - name: IMG Volume Provisioning
       na_ontap_volume:
         state: present
         name: "{{ vol_img_base }}{{ '%03d' | format(item|int) }}"
@@ -41,7 +41,10 @@
         junction_path: "/{{ vol_img_base }}{{ '%03d' | format(item|int) }}"
         <<: *login
       loop: "{{ range(1, dbbackup_vol_info.volume_count_img + 1) | list }}"
-    - name: LOG Volume Create
+    - name: Log Volume Calculations from DB Size and Max Volume Size
+      debug:
+        msg: "Log Volume Size: {{ dbbackup_vol_info.volume_size_log }} - Volume Count: {{ dbbackup_vol_info.volume_count_log }}"
+    - name: LOG Volume Provisioning
       na_ontap_volume:
         state: present
         name: "{{ vol_log_base }}{{ '%03d' | format(item|int) }}"
