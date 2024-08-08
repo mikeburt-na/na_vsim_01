@@ -16,7 +16,7 @@
     vol_img_base: "{{ client_name }}_{{ db_name }}_{{ vol_type_img }}01_"
     vol_log_base: "{{ client_name }}_{{ db_name }}_{{ vol_type_log }}01_"
   vars_files:
-    - /home/CTS_NetApp_Python/Ansible/DB_Backup/var/@var.yml
+    - var/@var.yml
   tasks:
     - name: IMG and LOG Volume Size_Count Info
       db_backup_vol_info:
