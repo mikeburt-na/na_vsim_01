@@ -18,11 +18,16 @@
   vars_files:
     - var/@var.yml
   tasks:
+    - name: Determine Volume Size and Count Per DB Size
+      debug:
+        msg: "Calculating Volume Size and Count"
     - name: IMG and LOG Volume Size_Count Info
       db_backup_vol_info:
         DB_SIZE: "{{ db_size }}"
         MAX_VOL_SIZE: "{{ max_vol_size }}"
       register: dbbackup_vol_info
+      debug:
+        msg: "Database Size: {{ db_size }} - Max Volume Size: {{ max_vol_size }}"
     - name: IMG Volume Create
       na_ontap_volume:
         state: present
