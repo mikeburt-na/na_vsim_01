@@ -1,0 +1,62 @@
+---
+- name: Install Server CA Certificate in NetApp ONTAP
+  hosts: ontap_cluster  # Target group defined in your inventory file
+  gather_facts: false
+  collections:
+    - netapp.ontap
+  vars:
+    # ONTAP connection details (override via inventory or extra vars)
+    ontap_hostname: "{{ netapp_hostname }}"  # e.g., cluster1.example.com
+    ontap_username: "{{ netapp_username }}"  # Admin username
+    ontap_password: "{{ netapp_password }}"  # Admin password
+    validate_certs: false  # Set to false if using self-signed certs for connection
+
+    # Certificate details
+    cert_name: "server-ca-cert"  # Unique name for the certificate in ONTAP
+    common_name: "Server CA"     # Common name (CN) from the cert; required for identification
+    cert_pem_content: |
+      -----BEGIN CERTIFICATE-----
+      MIIDczCCAlugAwIBAgIJAM9X1X8W3z5hMA0GCSqGSIb3DQEBCwUAMFoxCzAJBgNV
+      BAYTAkFVMRMwEQYDVQQIEwpTb21lLVN0YXRlMSEwHwYDVQQKExhGYWtlIENBIERl
+      bW8gT3JnYW5pemF0aW9uMRkwFwYDVQQDExBTZXJ2ZXIgQ0EgVGVzdGluZzAeFw0y
+      NTEwMDIxNTAyMDBaFw0yNjEwMDIxNTAyMDBaMFoxCzAJBgNVBAYTAkFVMRMwEQYD
+      VQQIEwpTb21lLVN0YXRlMSEwHwYDVQQKExhGYWtlIENBIERlbW8gT3JnYW5pemF0
+      aW9uMRkwFwYDVQQDExBTZXJ2ZXIgQ0EgVGVzdGluZzCCASIwDQYJKoZIhvcNAQEB
+      BQADggEPADCCAQoCggEBAMqX9Y2f7z8z5h3Q2kX8W9z8z5h3Q2kX8W9z8z5h3Q2
+      kX8W9z8z5h3Q2kX8W9z8z5h3Q2kX8W9z8z5h3Q2kX8W9z8z5h3Q2kX8W9z8z5h
+      3Q2kX8W9z8z5h3Q2kX8W9z8z5h3Q2kX8W9z8z5h3Q2kX8W9z8z5h3Q2kX8W9z8
+      z5h3Q2kX8W9z8z5h3Q2kX8W9z8z5h3Q2kX8W9z8z5h3Q2kX8W9z8z5h3Q2kX8W9
+      z8z5h3Q2kX8W9z8z5h3Q2kX8W9z8z5h3Q2kX8W9z8z5h3Q2kX8W9z8z5h3Q2kX8
+      W9z8z5h3Q2kX8W9z8z5h3Q2kX8W9z8z5h3Q2kX8W9z8z5h3Q2kX8W9z8z5h3Q2k
+      X8WCAwEAAaOBkDCBjTAMBgNVHRMEBTADAQH/MB0GA1UdDgQWBBR5z8z5h3Q2kX8W9
+      z8z5h3Q2kX8W9AfBgNVHSMEGDAWgBR5z8z5h3Q2kX8W9z8z5h3Q2kX8W9APwYDVR0
+      RBDgwNoIkU2VydmVyIENBIFRlc3RpbmcudGVzdEBmYWtlY2EuZXhhbXBsZS5jb20w
+      DQYJKoZIhvcNAQELBQADggEBAM9X1X8W3z5h3Q2kX8W9z8z5h3Q2kX8W9z8z5h3Q
+      2kX8W9z8z5h3Q2kX8W9z8z5h3Q2kX8W9z8z5h3Q2kX8W9z8z5h3Q2kX8W9z8z5h
+      3Q2kX8W9z8z5h3Q2kX8W9z8z5h3Q2kX8W9z8z5h3Q2kX8W9z8z5h3Q2kX8W9z8z
+      5h3Q2kX8W9z8z5h3Q2kX8W9z8z5h3Q2kX8W9z8z5h3Q2kX8W9z8z5h3Q2kX8W9z
+      8z5h3Q2kX8W9z8z5h3Q2kX8W9z8z5h3Q2kX8W9z8z5h3Q2kX8W9z8z5h3Q2kX8W
+      9z8z5h3Q2kX8W9z8z5h3Q2kX8W9z8z5h3Q2kX8W9z8z5h3Q2kX8W9z8z5h3Q2kX
+      8W9z8z5h3Q==
+      -----END CERTIFICATE-----
+
+  tasks:
+    - name: Install the server CA certificate
+      na_ontap_security_certificates:
+        state: present  # Ensures installation (idempotent)
+        name: "{{ cert_name }}"
+        common_name: "{{ common_name }}"
+        type: server_ca  # Specifies server CA type
+        public_certificate: "{{ cert_pem_content | regex_replace('\n', '\\n') }}"  # Escape newlines for YAML
+        # svm: "{{ svm_name }}"  # Uncomment and set for SVM-specific install (e.g., "vserver1")
+        hostname: "{{ ontap_hostname }}"
+        username: "{{ ontap_username }}"
+        password: "{{ ontap_password }}"
+        https: true
+        validate_certs: "{{ validate_certs }}"
+        use_rest: auto  # Auto-detect ZAPI/REST; set to 'always' for REST-only (ONTAP 9.6+)
+      register: cert_install_result
+
+    - name: Display installation result
+      debug:
+        msg: "Certificate '{{ cert_name }}' installed successfully. Details: {{ cert_install_result }}"
