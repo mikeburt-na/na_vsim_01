@@ -1,6 +1,6 @@
 ---
 - name: Install Server CA Certificate in NetApp ONTAP
-  hosts: ontap_cluster  # Target group defined in your inventory file
+  hosts: localhost
   gather_facts: false
   collections:
     - netapp.ontap
