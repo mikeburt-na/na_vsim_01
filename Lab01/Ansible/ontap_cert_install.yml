@@ -60,4 +60,4 @@
 
     - name: Display installation result
       debug:
-        msg: "Certificate '{{ cert_name }}' installed successfully. Details: {{ cert_install_result }}"
+        msg: "Certificate '{{ cert_name }}' installed successfully."
