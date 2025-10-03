@@ -12,8 +12,6 @@
     validate_certs: false  # Set to false if using self-signed certs for ONTAP API
 
     # Certificate details
-    cert_name: "server-ca-cert"
-    common_name: "Server CA Testing"
     cert_pem_content: |
       -----BEGIN CERTIFICATE-----
       MIIDczCCAlugAwIBAgIJAM9X1X8W3z5hMA0GCSqGSIb3DQEBCwUAMFoxCzAJBgNV
@@ -44,8 +42,6 @@
     - name: Install the server CA certificate
       na_ontap_security_certificates:
         state: present
-        name: "{{ cert_name }}"
-        common_name: "{{ common_name }}"
         type: server_ca
         public_certificate: "{{ cert_pem_content | regex_replace('\n', '\\n') }}"
         # svm: "{{ svm_name }}"  # Uncomment for SVM-specific install
