@@ -13,32 +13,32 @@
 
     # Certificate details
     cert_name: "server-ca-cert"
-    common_name: "Server CA Testing"
-    cert_type: "server_ca"  # Explicitly define type as variable for clarity
+    common_name: "server-ca-testing.example.com"  # Matches new certificate CN
+    cert_type: "server_ca"
     cert_pem_content: |
       -----BEGIN CERTIFICATE-----
-      MIIDczCCAlugAwIBAgIJAM9X1X8W3z5hMA0GCSqGSIb3DQEBCwUAMFoxCzAJBgNV
+      MIIDdTCCAl2gAwIBAgIJAM9X1X8W3z5hMA0GCSqGSIb3DQEBCwUAMGgxCzAJBgNV
       BAYTAkFVMRMwEQYDVQQIEwpTb21lLVN0YXRlMSEwHwYDVQQKExhGYWtlIENBIERl
-      bW8gT3JnYW5pemF0aW9uMRkwFwYDVQQDExBTZXJ2ZXIgQ0EgVGVzdGluZzAeFw0y
-      NTEwMDIxNTAyMDBaFw0yNjEwMDIxNTAyMDBaMFoxCzAJBgNVBAYTAkFVMRMwEQYD
-      VQQIEwpTb21lLVN0YXRlMSEwHwYDVQQKExhGYWtlIENBIERlbW8gT3JnYW5pemF0
-      aW9uMRkwFwYDVQQDExBTZXJ2ZXIgQ0EgVGVzdGluZzCCASIwDQYJKoZIhvcNAQEB
-      BQADggEPADCCAQoCggEBAMqX9Y2f7z8z5h3Q2kX8W9z8z5h3Q2kX8W9z8z5h3Q2
-      kX8W9z8z5h3Q2kX8W9z8z5h3Q2kX8W9z8z5h3Q2kX8W9z8z5h3Q2kX8W9z8z5h
-      3Q2kX8W9z8z5h3Q2kX8W9z8z5h3Q2kX8W9z8z5h3Q2kX8W9z8z5h3Q2kX8W9z8
-      z5h3Q2kX8W9z8z5h3Q2kX8W9z8z5h3Q2kX8W9z8z5h3Q2kX8W9z8z5h3Q2kX8W9
+      bW8gT3JnYW5pemF0aW9uMSAwHgYDVQQDExdzZXJ2ZXItY2EtdGVzdGluZy5leGFt
+      cGxlLmNvbTAeFw0yNTEwMDMxNTA2MDBaFw0yNjEwMDMxNTA2MDBaMGgxCzAJBgNV
+      BAYTAkFVMRMwEQYDVQQIEwpTb21lLVN0YXRlMSEwHwYDVQQKExhGYWtlIENBIERl
+      bW8gT3JnYW5pemF0aW9uMSAwHgYDVQQDExdzZXJ2ZXItY2EtdGVzdGluZy5leGFt
+      cGxlLmNvbTCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBAMqX9Y2f7z8z
+      5h3Q2kX8W9z8z5h3Q2kX8W9z8z5h3Q2kX8W9z8z5h3Q2kX8W9z8z5h3Q2kX8W9
       z8z5h3Q2kX8W9z8z5h3Q2kX8W9z8z5h3Q2kX8W9z8z5h3Q2kX8W9z8z5h3Q2kX8
       W9z8z5h3Q2kX8W9z8z5h3Q2kX8W9z8z5h3Q2kX8W9z8z5h3Q2kX8W9z8z5h3Q2k
-      X8WCAwEAAaOBkDCBjTAMBgNVHRMEBTADAQH/MB0GA1UdDgQWBBR5z8z5h3Q2kX8W9
-      z8z5h3Q2kX8W9AfBgNVHSMEGDAWgBR5z8z5h3Q2kX8W9z8z5h3Q2kX8W9APwYDVR0
-      RBDgwNoIkU2VydmVyIENBIFRlc3RpbmcudGVzdEBmYWtlY2EuZXhhbXBsZS5jb20w
-      DQYJKoZIhvcNAQELBQADggEBAM9X1X8W3z5h3Q2kX8W9z8z5h3Q2kX8W9z8z5h3Q
-      2kX8W9z8z5h3Q2kX8W9z8z5h3Q2kX8W9z8z5h3Q2kX8W9z8z5h3Q2kX8W9z8z5h
-      3Q2kX8W9z8z5h3Q2kX8W9z8z5h3Q2kX8W9z8z5h3Q2kX8W9z8z5h3Q2kX8W9z8z
-      5h3Q2kX8W9z8z5h3Q2kX8W9z8z5h3Q2kX8W9z8z5h3Q2kX8W9z8z5h3Q2kX8W9z
-      8z5h3Q2kX8W9z8z5h3Q2kX8W9z8z5h3Q2kX8W9z8z5h3Q2kX8W9z8z5h3Q2kX8W
-      9z8z5h3Q2kX8W9z8z5h3Q2kX8W9z8z5h3Q2kX8W9z8z5h3Q2kX8W9z8z5h3Q2kX
-      8W9z8z5h3Q==
+      X8W9z8z5h3Q2kX8W9z8z5h3Q2kX8W9z8z5h3Q2kX8W9z8z5h3Q2kX8W9z8z5h3Q2
+      kX8W9z8z5h3Q2kX8W9z8z5h3Q2kX8W9z8z5h3Q2kX8W9z8z5h3Q2kX8W9z8z5h3Q
+      2kX8W9z8z5h3Q2kX8W9z8z5h3Q2kX8W9z8z5h3Q2kX8W9z8z5h3Q2kX8WCAwEAAa
+      OBkDCBjTAMBgNVHRMEBTADAQH/MB0GA1UdDgQWBBR5z8z5h3Q2kX8W9z8z5h3Q2kX
+      8W9AfBgNVHSMEGDAWgBR5z8z5h3Q2kX8W9z8z5h3Q2kX8W9APwYDVR0RBDgwNoIdc2
+      VydmVyLWNhLXRlc3RpbmcudGVzdEBleGFtcGxlLmNvbTAwDQYJKoZIhvcNAQELBQAD
+      ggEBAM9X1X8W3z5h3Q2kX8W9z8z5h3Q2kX8W9z8z5h3Q2kX8W9z8z5h3Q2kX8W9z
+      8z5h3Q2kX8W9z8z5h3Q2kX8W9z8z5h3Q2kX8W9z8z5h3Q2kX8W9z8z5h3Q2kX8W9
+      z8z5h3Q2kX8W9z8z5h3Q2kX8W9z8z5h3Q2kX8W9z8z5h3Q2kX8W9z8z5h3Q2kX8W
+      9z8z5h3Q2kX8W9z8z5h3Q2kX8W9z8z5h3Q2kX8W9z8z5h3Q2kX8W9z8z5h3Q2kX8
+      W9z8z5h3Q2kX8W9z8z5h3Q2kX8W9z8z5h3Q2kX8W9z8z5h3Q2kX8W9z8z5h3Q2kX
+      8W9z8z5h3Q2kX8W9z8z5h3Q2kX8W9z8z5h3Q2kX8W9z8z5h3Q2kX8W9z8z5h3Q==
       -----END CERTIFICATE-----
 
   tasks:
@@ -63,8 +63,9 @@
         password: "{{ ontap_password }}"
         https: true
         validate_certs: "{{ validate_certs }}"
-        use_rest: auto
+        use_rest: always  # Force REST API for better compatibility (ONTAP 9.6+)
       register: cert_install_result
+      failed_when: cert_install_result.failed or ('failed' in cert_install_result and cert_install_result.failed)
 
     - name: Display installation result
       debug:
