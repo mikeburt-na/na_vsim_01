@@ -5,15 +5,16 @@
   collections:
     - netapp.ontap
   vars:
-    # ONTAP connection details (defined in inventory or overridden here)
-    ontap_hostname: "{{ netapp_hostname }}"
-    ontap_username: "{{ netapp_username }}"
-    ontap_password: "{{ netapp_password }}"
-    validate_certs: false  # Set to false if using self-signed certs for ONTAP API
+    # ONTAP connection details
+    ontap_hostname: "{{ netapp_hostname | default('ontap1.example.com') }}"
+    ontap_username: "{{ netapp_username | default('admin') }}"
+    ontap_password: "{{ netapp_password | default('your_secure_password') }}"
+    validate_certs: false  # Set to false for testing with self-signed ONTAP API certs
 
     # Certificate details
-    cert_name: "server-ca-cert"  # Unique name for the certificate in ONTAP
-    common_name: "Server CA Testing"  # Matches CN in the certificate
+    cert_name: "server-ca-cert"
+    common_name: "Server CA Testing"
+    cert_type: "server_ca"  # Explicitly define type as variable for clarity
     cert_pem_content: |
       -----BEGIN CERTIFICATE-----
       MIIDczCCAlugAwIBAgIJAM9X1X8W3z5hMA0GCSqGSIb3DQEBCwUAMFoxCzAJBgNV
@@ -41,10 +42,20 @@
       -----END CERTIFICATE-----
 
   tasks:
+    - name: Debug certificate variables
+      debug:
+        msg: |
+          cert_name: {{ cert_name }}
+          common_name: {{ common_name }}
+          cert_type: {{ cert_type }}
+          public_certificate_length: {{ cert_pem_content | length }}
+
     - name: Install the server CA certificate
       na_ontap_security_certificates:
         state: present
-        type: server_ca
+        name: "{{ cert_name }}"
+        common_name: "{{ common_name }}"
+        type: "{{ cert_type }}"
         public_certificate: "{{ cert_pem_content | regex_replace('\n', '\\n') }}"
         # svm: "{{ svm_name }}"  # Uncomment for SVM-specific install
         hostname: "{{ ontap_hostname }}"
