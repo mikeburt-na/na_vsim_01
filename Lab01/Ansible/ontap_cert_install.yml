@@ -41,14 +41,6 @@
       -----END CERTIFICATE-----
 
   tasks:
-    - name: Debug certificate variables
-      debug:
-        msg: |
-          cert_name: {{ cert_name }}
-          common_name: {{ common_name }}
-          cert_type: {{ cert_type }}
-          public_certificate_length: {{ cert_pem_content | length }}
-
     - name: Install the server CA certificate
       na_ontap_security_certificates:
         state: present
