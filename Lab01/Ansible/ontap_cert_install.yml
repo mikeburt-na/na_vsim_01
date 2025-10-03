@@ -9,7 +9,7 @@
     ontap_hostname: "{{ netapp_hostname }}"
     ontap_username: "{{ netapp_username }}"
     ontap_password: "{{ netapp_password }}"
-    validate_certs: true  # Set to false if using self-signed certs for ONTAP API
+    validate_certs: false  # Set to false if using self-signed certs for ONTAP API
 
     # Certificate details
     cert_name: "server-ca-cert"
