@@ -12,6 +12,8 @@
     validate_certs: false  # Set to false if using self-signed certs for ONTAP API
 
     # Certificate details
+    cert_name: "server-ca-cert"  # Unique name for the certificate in ONTAP
+    common_name: "Server CA Testing"  # Matches CN in the certificate
     cert_pem_content: |
       -----BEGIN CERTIFICATE-----
       MIIDczCCAlugAwIBAgIJAM9X1X8W3z5hMA0GCSqGSIb3DQEBCwUAMFoxCzAJBgNV
