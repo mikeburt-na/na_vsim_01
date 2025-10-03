@@ -1,19 +1,19 @@
 ---
 - name: Install Server CA Certificate in NetApp ONTAP
-  hosts: localhost
+  hosts: ontap_cluster  # Targets localhost, as defined in inventory
   gather_facts: false
   collections:
     - netapp.ontap
   vars:
-    # ONTAP connection details (override via inventory or extra vars)
-    ontap_hostname: "{{ netapp_hostname }}"  # e.g., cluster1.example.com
-    ontap_username: "{{ netapp_username }}"  # Admin username
-    ontap_password: "{{ netapp_password }}"  # Admin password
-    validate_certs: false  # Set to false if using self-signed certs for connection
+    # ONTAP connection details (defined in inventory or overridden here)
+    ontap_hostname: "{{ netapp_hostname }}"
+    ontap_username: "{{ netapp_username }}"
+    ontap_password: "{{ netapp_password }}"
+    validate_certs: true  # Set to false if using self-signed certs for ONTAP API
 
     # Certificate details
-    cert_name: "server-ca-cert"  # Unique name for the certificate in ONTAP
-    common_name: "Server CA"     # Common name (CN) from the cert; required for identification
+    cert_name: "server-ca-cert"
+    common_name: "Server CA Testing"
     cert_pem_content: |
       -----BEGIN CERTIFICATE-----
       MIIDczCCAlugAwIBAgIJAM9X1X8W3z5hMA0GCSqGSIb3DQEBCwUAMFoxCzAJBgNV
@@ -43,18 +43,18 @@
   tasks:
     - name: Install the server CA certificate
       na_ontap_security_certificates:
-        state: present  # Ensures installation (idempotent)
+        state: present
         name: "{{ cert_name }}"
         common_name: "{{ common_name }}"
-        type: server_ca  # Specifies server CA type
-        public_certificate: "{{ cert_pem_content | regex_replace('\n', '\\n') }}"  # Escape newlines for YAML
-        # svm: "{{ svm_name }}"  # Uncomment and set for SVM-specific install (e.g., "vserver1")
+        type: server_ca
+        public_certificate: "{{ cert_pem_content | regex_replace('\n', '\\n') }}"
+        # svm: "{{ svm_name }}"  # Uncomment for SVM-specific install
         hostname: "{{ ontap_hostname }}"
         username: "{{ ontap_username }}"
         password: "{{ ontap_password }}"
         https: true
         validate_certs: "{{ validate_certs }}"
-        use_rest: auto  # Auto-detect ZAPI/REST; set to 'always' for REST-only (ONTAP 9.6+)
+        use_rest: auto
       register: cert_install_result
 
     - name: Display installation result
