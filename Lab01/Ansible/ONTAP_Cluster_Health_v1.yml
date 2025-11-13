@@ -13,36 +13,39 @@
 
   tasks:
     - name: Gather ONTAP health and status information
-      netapp.ontap.na_ontap_info:
+      netapp.ontap.na_ontap_rest_info:
         hostname: "{{ ontap_hostname }}"
         username: "{{ ontap_username }}"
         password: "{{ ontap_password }}"
         https: "{{ ontap_https }}"
         validate_certs: "{{ ontap_validate_certs }}"
         gather_subset:
-          - cluster_identity_info      # Cluster details
-          - cluster_node_info          # Node health and status
-          - subsys_health_info         # Subsystem health
-          - sys_cluster_alerts         # Cluster alerts
-          - env_sensors_info           # Environmental sensors (hardware health)
-          - autosupport_check_info     # AutoSupport status
-          - storage_failover_info      # HA failover status
-          - aggregate_info             # Aggregate status
-          - volume_info                # Volume status
-          - disk_info                  # Disk health
-          - shelf_info                 # Shelf health
+          - cluster                    # Cluster details (identity and overall health)
+          - cluster/nodes              # Node health and status, including HA failover
+          - cluster/sensors            # Environmental sensors (hardware health, replacing subsys_health_info)
+          - private/support/alerts     # Cluster alerts
+          - support/autosupport/check  # AutoSupport status
+          - storage/aggregates         # Aggregate status
+          - storage/volumes            # Volume status
+          - storage/disks              # Disk health
+          - storage/shelves            # Shelf health
       register: ontap_health_info
 
     - name: Display overall cluster health information (optional detailed output)
       ansible.builtin.debug:
         var: ontap_health_info.ontap_info
-      when: false  # Set to true to inspect the structure; change to false for simple output
+      when: true  # Set to true to inspect the structure; change to false for simple output
 
     - name: Set facts for health checks
       ansible.builtin.set_fact:
-        cluster_alerts_status: "{{ 'Bad' if (ontap_health_info.ontap_info.sys_cluster_alerts is defined and (ontap_health_info.ontap_info.sys_cluster_alerts | json_query('[? \"alert-severity\" == `ERROR` || \"alert-severity\" == `EMERGENCY`]') | default([]) | length > 0)) else 'Good' }}"
-        node_health_status: "{{ 'Bad' if (ontap_health_info.ontap_info.cluster_node_info is defined and (ontap_health_info.ontap_info | json_query('cluster_node_info | keys(@) | [? cluster_node_info[@].\"is-node-healthy\" == `false`]') | default([]) | length > 0)) else 'Good' }}"
-        subsystem_health_status: "{{ 'Bad' if (ontap_health_info.ontap_info.subsys_health_info is defined and (ontap_health_info.ontap_info | json_query('subsys_health_info | keys(@) | [? subsys_health_info[@].\"subsystem-health\" != `ok`]') | default([]) | length > 0)) else 'Good' }}"
+        cluster_alerts_status: "{{ 'Bad' if (ontap_health_info.ontap_info.get('private/support/alerts', {}) | json_query('records[? \"severity\" == `ERROR` || \"severity\" == `EMERGENCY`]') | default([], true) | length > 0) else 'Good' }}"
+        node_health_status: "{{ 'Bad' if (ontap_health_info.ontap_info.get('cluster/nodes', {}) | json_query('records[? \"state\" != `up`]') | default([], true) | length > 0) else 'Good' }}"
+        sensors_health_status: "{{ 'Bad' if (ontap_health_info.ontap_info.get('cluster/sensors', {}) | json_query('records[? \"state\" != `normal`]') | default([], true) | length > 0) else 'Good' }}"
+        aggregate_status: "{{ 'Bad' if (ontap_health_info.ontap_info.get('storage/aggregates', {}) | json_query('records[? \"state\" != `online`]') | default([], true) | length > 0) else 'Good' }}"
+        volume_status: "{{ 'Bad' if (ontap_health_info.ontap_info.get('storage/volumes', {}) | json_query('records[? \"state\" != `online`]') | default([], true) | length > 0) else 'Good' }}"
+        disk_status: "{{ 'Bad' if (ontap_health_info.ontap_info.get('storage/disks', {}) | json_query('records[? \"state\" == `broken` || \"state\" == `maintenance`]') | default([], true) | length > 0) else 'Good' }}"
+        shelf_status: "{{ 'Bad' if (ontap_health_info.ontap_info.get('storage/shelves', {}) | json_query('records[? \"state\" != `online`]') | default([], true) | length > 0) else 'Good' }}"
+        autosupport_status: "{{ 'Bad' if (ontap_health_info.ontap_info.get('support/autosupport/check', {}) | json_query('issues_log[*]') | default([], true) | length > 0) else 'Good' }}"
 
     - name: Output Cluster Alerts Status
       ansible.builtin.debug:
@@ -52,13 +55,33 @@
       ansible.builtin.debug:
         msg: "Node Health: {{ node_health_status }}"
 
-    - name: Output Subsystem Health Status
+    - name: Output Sensors Health Status
       ansible.builtin.debug:
-        msg: "Subsystem Health: {{ subsystem_health_status }}"
+        msg: "Sensors Health: {{ sensors_health_status }}"
+
+    - name: Output Aggregate Status
+      ansible.builtin.debug:
+        msg: "Aggregates: {{ aggregate_status }}"
+
+    - name: Output Volume Status
+      ansible.builtin.debug:
+        msg: "Volumes: {{ volume_status }}"
+
+    - name: Output Disk Status
+      ansible.builtin.debug:
+        msg: "Disks: {{ disk_status }}"
+
+    - name: Output Shelf Status
+      ansible.builtin.debug:
+        msg: "Shelves: {{ shelf_status }}"
+
+    - name: Output AutoSupport Status
+      ansible.builtin.debug:
+        msg: "AutoSupport: {{ autosupport_status }}"
 
     - name: Determine Overall Status
       ansible.builtin.set_fact:
-        overall_status: "{{ 'Bad' if ('Bad' in [cluster_alerts_status, node_health_status, subsystem_health_status]) else 'Good' }}"
+        overall_status: "{{ 'Bad' if ('Bad' in [cluster_alerts_status, node_health_status, sensors_health_status, aggregate_status, volume_status, disk_status, shelf_status, autosupport_status]) else 'Good' }}"
 
     - name: Output Overall Status
       ansible.builtin.debug:
