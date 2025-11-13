@@ -36,13 +36,13 @@
     - name: Display overall cluster health information (optional detailed output)
       ansible.builtin.debug:
         var: ontap_health_info.ontap_info
-      when: false  # Set to true if you want detailed info; default off for simple output
+      when: true  # Set to true to inspect the structure; change to false for simple output
 
     - name: Set facts for health checks
       ansible.builtin.set_fact:
-        cluster_alerts_status: "{{ 'Bad' if (ontap_health_info.ontap_info.sys_cluster_alerts is defined and (ontap_health_info.ontap_info.sys_cluster_alerts | json_query('[? \"alert-severity\" == `ERROR` || \"alert-severity\" == `EMERGENCY`]') | length > 0)) else 'Good' }}"
-        node_health_status: "{{ 'Bad' if (ontap_health_info.ontap_info.cluster_node_info is defined and (ontap_health_info.ontap_info | json_query('cluster_node_info | keys(@) | [? cluster_node_info[@].\"is-node-healthy\" == `false`]') | length > 0)) else 'Good' }}"
-        subsystem_health_status: "{{ 'Bad' if (ontap_health_info.ontap_info.subsys_health_info is defined and (ontap_health_info.ontap_info | json_query('subsys_health_info | keys(@) | [? subsys_health_info[@].\"subsystem-health\" != `ok`]') | length > 0)) else 'Good' }}"
+        cluster_alerts_status: "{{ 'Bad' if (ontap_health_info.ontap_info.sys_cluster_alerts is defined and (ontap_health_info.ontap_info.sys_cluster_alerts | json_query('[? \"alert-severity\" == `ERROR` || \"alert-severity\" == `EMERGENCY`]') | default([]) | length > 0)) else 'Good' }}"
+        node_health_status: "{{ 'Bad' if (ontap_health_info.ontap_info.cluster_node_info is defined and (ontap_health_info.ontap_info | json_query('cluster_node_info | keys(@) | [? cluster_node_info[@].\"is-node-healthy\" == `false`]') | default([]) | length > 0)) else 'Good' }}"
+        subsystem_health_status: "{{ 'Bad' if (ontap_health_info.ontap_info.subsys_health_info is defined and (ontap_health_info.ontap_info | json_query('subsys_health_info | keys(@) | [? subsys_health_info[@].\"subsystem-health\" != `ok`]') | default([]) | length > 0)) else 'Good' }}"
 
     - name: Output Cluster Alerts Status
       ansible.builtin.debug:
