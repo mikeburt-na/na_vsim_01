@@ -34,50 +34,105 @@
     - name: Display overall cluster health information (optional detailed output)
       ansible.builtin.debug:
         var: ontap_health_info.ontap_info
-      when: true  # Set to true to inspect the structure; change to false for simple output
+      when: false  # Set to true to inspect the structure; change to false for simple output
 
     - name: Set facts for health checks
       ansible.builtin.set_fact:
-        cluster_alerts_status: "{{ 'Bad' if (ontap_health_info.ontap_info.get('private/support/alerts', {}) | json_query('records[? \"severity\" == `ERROR` || \"severity\" == `EMERGENCY`]') | default([], true) | length > 0) else 'Good' }}"
-        node_health_status: "{{ 'Bad' if (ontap_health_info.ontap_info.get('cluster/nodes', {}) | json_query('records[? \"state\" != `up`]') | default([], true) | length > 0) else 'Good' }}"
-        sensors_health_status: "{{ 'Bad' if (ontap_health_info.ontap_info.get('cluster/sensors', {}) | json_query('records[? \"state\" != `normal`]') | default([], true) | length > 0) else 'Good' }}"
-        aggregate_status: "{{ 'Bad' if (ontap_health_info.ontap_info.get('storage/aggregates', {}) | json_query('records[? \"state\" != `online`]') | default([], true) | length > 0) else 'Good' }}"
-        volume_status: "{{ 'Bad' if (ontap_health_info.ontap_info.get('storage/volumes', {}) | json_query('records[? \"state\" != `online`]') | default([], true) | length > 0) else 'Good' }}"
-        disk_status: "{{ 'Bad' if (ontap_health_info.ontap_info.get('storage/disks', {}) | json_query('records[? \"state\" == `broken` || \"state\" == `maintenance`]') | default([], true) | length > 0) else 'Good' }}"
-        shelf_status: "{{ 'Bad' if (ontap_health_info.ontap_info.get('storage/shelves', {}) | json_query('records[? \"state\" != `online`]') | default([], true) | length > 0) else 'Good' }}"
-        autosupport_status: "{{ 'Bad' if (ontap_health_info.ontap_info.get('support/autosupport/check', {}) | json_query('issues_log[*]') | default([], true) | length > 0) else 'Good' }}"
+        critical_alerts: "{{ ontap_health_info.ontap_info.get('private/support/alerts', {}) | json_query('records[? severity == `ERROR` || severity == `EMERGENCY`].[node.name, severity, description]') | default([]) }}"
+        cluster_alerts_status: "{{ 'Bad' if critical_alerts | length > 0 else 'Good' }}"
+
+        unhealthy_nodes: "{{ ontap_health_info.ontap_info.get('cluster/nodes', {}) | json_query('records[? state != `up`].[name, state]') | default([]) }}"
+        node_health_status: "{{ 'Bad' if unhealthy_nodes | length > 0 else 'Good' }}"
+
+        faulty_sensors: "{{ ontap_health_info.ontap_info.get('cluster/sensors', {}) | json_query('records[? state != `normal`].[node.name, name, state, value]') | default([]) }}"
+        sensors_health_status: "{{ 'Bad' if faulty_sensors | length > 0 else 'Good' }}"
+
+        offline_aggregates: "{{ ontap_health_info.ontap_info.get('storage/aggregates', {}) | json_query('records[? state != `online`].[name, state]') | default([]) }}"
+        aggregate_status: "{{ 'Bad' if offline_aggregates | length > 0 else 'Good' }}"
+
+        offline_volumes: "{{ ontap_health_info.ontap_info.get('storage/volumes', {}) | json_query('records[? state != `online`].[name, state]') | default([]) }}"
+        volume_status: "{{ 'Bad' if offline_volumes | length > 0 else 'Good' }}"
+
+        broken_disks: "{{ ontap_health_info.ontap_info.get('storage/disks', {}) | json_query('records[? state == `broken` || state == `maintenance`].[name, state]') | default([]) }}"
+        disk_status: "{{ 'Bad' if broken_disks | length > 0 else 'Good' }}"
+
+        offline_shelves: "{{ ontap_health_info.ontap_info.get('storage/shelves', {}) | json_query('records[? state != `online`].[name, state]') | default([]) }}"
+        shelf_status: "{{ 'Bad' if offline_shelves | length > 0 else 'Good' }}"
+
+        autosupport_issues: "{{ ontap_health_info.ontap_info.get('support/autosupport/check', {}) | json_query('issues_log[].description') | default([]) }}"
+        autosupport_status: "{{ 'Bad' if autosupport_issues | length > 0 else 'Good' }}"
 
     - name: Output Cluster Alerts Status
       ansible.builtin.debug:
         msg: "Cluster Alerts: {{ cluster_alerts_status }}"
 
+    - name: Output Critical Alerts Details (if Bad)
+      ansible.builtin.debug:
+        msg: "Critical Alerts: {{ critical_alerts }}"
+      when: cluster_alerts_status == 'Bad'
+
     - name: Output Node Health Status
       ansible.builtin.debug:
         msg: "Node Health: {{ node_health_status }}"
+
+    - name: Output Unhealthy Nodes Details (if Bad)
+      ansible.builtin.debug:
+        msg: "Unhealthy Nodes: {{ unhealthy_nodes }}"
+      when: node_health_status == 'Bad'
 
     - name: Output Sensors Health Status
       ansible.builtin.debug:
         msg: "Sensors Health: {{ sensors_health_status }}"
 
+    - name: Output Faulty Sensors Details (if Bad)
+      ansible.builtin.debug:
+        msg: "Faulty Sensors: {{ faulty_sensors }}"
+      when: sensors_health_status == 'Bad'
+
     - name: Output Aggregate Status
       ansible.builtin.debug:
         msg: "Aggregates: {{ aggregate_status }}"
+
+    - name: Output Offline Aggregates Details (if Bad)
+      ansible.builtin.debug:
+        msg: "Offline Aggregates: {{ offline_aggregates }}"
+      when: aggregate_status == 'Bad'
 
     - name: Output Volume Status
       ansible.builtin.debug:
         msg: "Volumes: {{ volume_status }}"
 
+    - name: Output Offline Volumes Details (if Bad)
+      ansible.builtin.debug:
+        msg: "Offline Volumes: {{ offline_volumes }}"
+      when: volume_status == 'Bad'
+
     - name: Output Disk Status
       ansible.builtin.debug:
         msg: "Disks: {{ disk_status }}"
+
+    - name: Output Broken Disks Details (if Bad)
+      ansible.builtin.debug:
+        msg: "Broken Disks: {{ broken_disks }}"
+      when: disk_status == 'Bad'
 
     - name: Output Shelf Status
       ansible.builtin.debug:
         msg: "Shelves: {{ shelf_status }}"
 
+    - name: Output Offline Shelves Details (if Bad)
+      ansible.builtin.debug:
+        msg: "Offline Shelves: {{ offline_shelves }}"
+      when: shelf_status == 'Bad'
+
     - name: Output AutoSupport Status
       ansible.builtin.debug:
         msg: "AutoSupport: {{ autosupport_status }}"
+
+    - name: Output AutoSupport Issues Details (if Bad)
+      ansible.builtin.debug:
+        msg: "AutoSupport Issues: {{ autosupport_issues }}"
+      when: autosupport_status == 'Bad'
 
     - name: Determine Overall Status
       ansible.builtin.set_fact:
