@@ -1,0 +1,57 @@
+---
+- name: Check NetApp ONTAP Cluster Health
+  hosts: ontap_cluster
+  gather_facts: false
+  collections:
+    - netapp.ontap
+  vars:
+    ontap_hostname: "{{ ansible_host }}"  # Use inventory hostname or provide via --extra-vars
+    ontap_username: "{{ username }}"      # Provide username via --extra-vars or vault
+    ontap_password: "{{ password }}"      # Provide password via --extra-vars or vault
+    ontap_https: true
+    ontap_validate_certs: false           # Set to true in production with valid certs
+
+  tasks:
+    - name: Gather ONTAP health and status information
+      netapp.ontap.na_ontap_info:
+        hostname: "{{ ontap_hostname }}"
+        username: "{{ ontap_username }}"
+        password: "{{ ontap_password }}"
+        https: "{{ ontap_https }}"
+        validate_certs: "{{ ontap_validate_certs }}"
+        gather_subset:
+          - cluster_identity_info      # Cluster details
+          - cluster_node_info          # Node health and status
+          - subsys_health_info         # Subsystem health
+          - sys_cluster_alerts         # Cluster alerts
+          - env_sensors_info           # Environmental sensors (hardware health)
+          - autosupport_check_info     # AutoSupport status
+          - storage_failover_info      # HA failover status
+          - aggregate_info             # Aggregate status
+          - volume_info                # Volume status
+          - disk_info                  # Disk health
+          - shelf_info                 # Shelf health
+      register: ontap_health_info
+
+    - name: Display overall cluster health information
+      ansible.builtin.debug:
+        var: ontap_health_info.ontap_info
+
+    - name: Check for cluster alerts and fail if any critical alerts exist
+      ansible.builtin.fail:
+        msg: "Critical cluster alerts detected: {{ ontap_health_info.ontap_info.sys_cluster_alerts | json_query('[*].alert-severity') | select('match', 'ERROR|EMERGENCY') }}"
+      when: ontap_health_info.ontap_info.sys_cluster_alerts is defined and (ontap_health_info.ontap_info.sys_cluster_alerts | json_query('[*].alert-severity') | select('match', 'ERROR|EMERGENCY') | list | length > 0)
+
+    - name: Check node health and fail if any node is unhealthy
+      ansible.builtin.fail:
+        msg: "Unhealthy nodes detected: {{ unhealthy_nodes }}"
+      vars:
+        unhealthy_nodes: "{{ ontap_health_info.ontap_info.cluster_node_info | dict2items | selectattr('value.is-node-healthy', 'equalto', false) | map(attribute='key') | list }}"
+      when: ontap_health_info.ontap_info.cluster_node_info is defined and unhealthy_nodes | length > 0
+
+    - name: Check subsystem health and fail if any subsystem is degraded
+      ansible.builtin.fail:
+        msg: "Degraded subsystems detected: {{ degraded_subsystems }}"
+      vars:
+        degraded_subsystems: "{{ ontap_health_info.ontap_info.subsys_health_info | dict2items | rejectattr('value.subsystem-health', 'equalto', 'ok') | map(attribute='key') | list }}"
+      when: ontap_health_info.ontap_info.subsys_health_info is defined and degraded_subsystems | length > 0
