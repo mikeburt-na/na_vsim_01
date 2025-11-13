@@ -5,9 +5,9 @@
   collections:
     - netapp.ontap
   vars:
-    ontap_hostname: "{{ ansible_host }}"  # Use inventory hostname or provide via --extra-vars
-    ontap_username: "{{ username }}"      # Provide username via --extra-vars or vault
-    ontap_password: "{{ password }}"      # Provide password via --extra-vars or vault
+    ontap_hostname: "{{ netapp_hostname }}"  # Pulled from inventory group vars
+    ontap_username: "{{ netapp_username }}"  # Pulled from inventory group vars
+    ontap_password: "{{ netapp_password }}"  # Pulled from inventory group vars
     ontap_https: true
     ontap_validate_certs: false           # Set to true in production with valid certs
 
