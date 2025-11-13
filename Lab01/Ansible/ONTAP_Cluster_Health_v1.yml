@@ -33,25 +33,39 @@
           - shelf_info                 # Shelf health
       register: ontap_health_info
 
-    - name: Display overall cluster health information
+    - name: Display overall cluster health information (optional detailed output)
       ansible.builtin.debug:
         var: ontap_health_info.ontap_info
+      when: false  # Set to true if you want detailed info; default off for simple output
 
-    - name: Check for cluster alerts and fail if any critical alerts exist
-      ansible.builtin.fail:
-        msg: "Critical cluster alerts detected: {{ ontap_health_info.ontap_info.sys_cluster_alerts | json_query('[*].alert-severity') | select('match', 'ERROR|EMERGENCY') }}"
-      when: ontap_health_info.ontap_info.sys_cluster_alerts is defined and (ontap_health_info.ontap_info.sys_cluster_alerts | json_query('[*].alert-severity') | select('match', 'ERROR|EMERGENCY') | list | length > 0)
+    - name: Set facts for health checks
+      ansible.builtin.set_fact:
+        cluster_alerts_status: "{{ 'Bad' if (ontap_health_info.ontap_info.sys_cluster_alerts is defined and (ontap_health_info.ontap_info.sys_cluster_alerts | json_query('[*].alert-severity') | select('match', 'ERROR|EMERGENCY') | list | length > 0)) else 'Good' }}"
+        node_health_status: "{{ 'Bad' if (ontap_health_info.ontap_info.cluster_node_info is defined and (ontap_health_info.ontap_info.cluster_node_info | dict2items | selectattr('value.is-node-healthy', 'equalto', false) | map(attribute='key') | list | length > 0)) else 'Good' }}"
+        subsystem_health_status: "{{ 'Bad' if (ontap_health_info.ontap_info.subsys_health_info is defined and (ontap_health_info.ontap_info.subsys_health_info | dict2items | rejectattr('value.subsystem-health', 'equalto', 'ok') | map(attribute='key') | list | length > 0)) else 'Good' }}"
 
-    - name: Check node health and fail if any node is unhealthy
-      ansible.builtin.fail:
-        msg: "Unhealthy nodes detected: {{ unhealthy_nodes }}"
-      vars:
-        unhealthy_nodes: "{{ ontap_health_info.ontap_info.cluster_node_info | dict2items | selectattr('value.is-node-healthy', 'equalto', false) | map(attribute='key') | list }}"
-      when: ontap_health_info.ontap_info.cluster_node_info is defined and unhealthy_nodes | length > 0
+    - name: Output Cluster Alerts Status
+      ansible.builtin.debug:
+        msg: "Cluster Alerts: {{ cluster_alerts_status }}"
 
-    - name: Check subsystem health and fail if any subsystem is degraded
-      ansible.builtin.fail:
-        msg: "Degraded subsystems detected: {{ degraded_subsystems }}"
-      vars:
-        degraded_subsystems: "{{ ontap_health_info.ontap_info.subsys_health_info | dict2items | rejectattr('value.subsystem-health', 'equalto', 'ok') | map(attribute='key') | list }}"
-      when: ontap_health_info.ontap_info.subsys_health_info is defined and degraded_subsystems | length > 0
+    - name: Output Node Health Status
+      ansible.builtin.debug:
+        msg: "Node Health: {{ node_health_status }}"
+
+    - name: Output Subsystem Health Status
+      ansible.builtin.debug:
+        msg: "Subsystem Health: {{ subsystem_health_status }}"
+
+    - name: Determine Overall Status
+      ansible.builtin.set_fact:
+        overall_status: "{{ 'Bad' if ('Bad' in [cluster_alerts_status, node_health_status, subsystem_health_status]) else 'Good' }}"
+
+    - name: Output Overall Status
+      ansible.builtin.debug:
+        msg: "Overall Cluster Health: {{ overall_status }}"
+
+    # Optional: Fail the playbook if overall is Bad (uncomment if needed)
+    # - name: Fail if overall health is Bad
+    #   ansible.builtin.fail:
+    #     msg: "Cluster health check failed with Bad status."
+    #   when: overall_status == 'Bad'
