@@ -37,14 +37,14 @@
       when: false
 
     # ---------------------------------------------------------
-    # 1. Extract all nodes safely
+    # 1. Extract nodes
     # ---------------------------------------------------------
     - name: Extract list of nodes
       ansible.builtin.set_fact:
         all_nodes: "{{ ontap_health_info.ontap_info['cluster/nodes'].records | default([]) }}"
 
     # ---------------------------------------------------------
-    # 2. Count nodes and determine HA status
+    # 2. Set node count and HA facts
     # ---------------------------------------------------------
     - name: Set node count and HA facts
       ansible.builtin.set_fact:
@@ -62,11 +62,17 @@
              | list }}
 
     # ---------------------------------------------------------
-    # 3. Determine expected HA configuration
+    # 3. Determine expected HA state (2 nodes = HA enabled)
+    # ---------------------------------------------------------
+    - name: Set expected HA state
+      ansible.builtin.set_fact:
+        expected_ha_enabled: "{{ node_count == 2 }}"
+
+    # ---------------------------------------------------------
+    # 4. Determine HA compliance
     # ---------------------------------------------------------
     - name: Determine HA compliance
       ansible.builtin.set_fact:
-        expected_ha_enabled: "{{ node_count == 2 }}"
         ha_compliance_status: >-
           {{ 'Good' if
                (expected_ha_enabled and ha_enabled_nodes | length == 2 and ha_disabled_nodes | length == 0) or
@@ -80,7 +86,7 @@
           {% endif %}
 
     # ---------------------------------------------------------
-    # 4. Other health checks
+    # 5. Other health checks
     # ---------------------------------------------------------
     - name: Set other health facts
       ansible.builtin.set_fact:
