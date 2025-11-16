@@ -5,11 +5,11 @@
   collections:
     - netapp.ontap
   vars:
-    ontap_hostname: "{{ netapp_hostname }}"  # Pulled from inventory group vars
-    ontap_username: "{{ netapp_username }}"  # Pulled from inventory group vars
-    ontap_password: "{{ netapp_password }}"  # Pulled from inventory group vars
+    ontap_hostname: "{{ netapp_hostname }}"
+    ontap_username: "{{ netapp_username }}"
+    ontap_password: "{{ netapp_password }}"
     ontap_https: true
-    ontap_validate_certs: false           # Set to true in production with valid certs
+    ontap_validate_certs: false
 
   tasks:
     - name: Gather ONTAP health and status information
@@ -20,42 +20,42 @@
         https: "{{ ontap_https }}"
         validate_certs: "{{ ontap_validate_certs }}"
         gather_subset:
-          - cluster                    # Cluster details
-          - cluster/nodes              # Node health and status
-          - cluster/sensors            # Environmental sensors
-          - private/support/alerts     # Cluster alerts
-          - support/autosupport/check  # AutoSupport status
-          - storage/aggregates         # Aggregate status
-          - storage/volumes            # Volume status
-          - storage/disks              # Disk health
-          - storage/shelves            # Shelf health
+          - cluster
+          - cluster/nodes
+          - cluster/sensors
+          - private/support/alerts
+          - support/autosupport/check
+          - storage/aggregates
+          - storage/volumes
+          - storage/disks
+          - storage/shelves
       register: ontap_health_info
 
-    - name: Display overall cluster health information (optional detailed output)
+    - name: Display overall cluster health information (optional)
       ansible.builtin.debug:
         var: ontap_health_info.ontap_info
-      when: false  # Set to true to inspect; change to false for simple output
+      when: false
 
     - name: Set facts for cluster node count and HA state
       ansible.builtin.set_fact:
-        all_nodes: "{{ ontap_health_info.ontap_info.get('cluster/nodes', {}).records | default([]) }}"
-        node_count: "{{ (ontap_health_info.ontap_info.get('cluster/nodes', {}).records | default([])) | length }}"
-        ha_enabled_nodes: "{{ ontap_health_info.ontap_info.get('cluster/nodes', {}).records | selectattr('is_ha_enabled', 'equalto', true) | list }}"
-        ha_disabled_nodes: "{{ ontap_health_info.ontap_info.get('cluster/nodes', {}).records | rejectattr('is_ha_enabled', 'equalto', true) | list }}"
+        all_nodes: "{{ (ontap_health_info.ontap_info['cluster/nodes'].records | default([])) }}"
+        node_count: "{{ (ontap_health_info.ontap_info['cluster/nodes'].records | default([])) | length }}"
+        ha_enabled_nodes: "{{ (ontap_health_info.ontap_info['cluster/nodes'].records | default([])) | selectattr('ha', 'defined') | selectattr('ha.enabled', 'equalto', true) | map(attribute='name') | list }}"
+        ha_disabled_nodes: "{{ (ontap_health_info.ontap_info['cluster/nodes'].records | default([])) | rejectattr('ha', 'defined') | rejectattr('ha.enabled', 'equalto', true) | map(attribute='name') | list }}"
 
     - name: Determine expected HA state
       ansible.builtin.set_fact:
-        expected_ha_enabled: "{{ true if node_count == 2 else false }}"
+        expected_ha_enabled: "{{ node_count == 2 }}"
         ha_compliance_status: >-
           {{ 'Good' if 
-             (expected_ha_enabled and ha_enabled_nodes | length == 2) or 
-             (not expected_ha_enabled and ha_disabled_nodes | length == node_count)
+             (expected_ha_enabled and ha_enabled_nodes | length == 2 and ha_disabled_nodes | length == 0) or 
+             (not expected_ha_enabled and ha_enabled_nodes | length == 0)
              else 'Bad' }}
         ha_compliance_details: >-
           {% if expected_ha_enabled %}
-          Expected HA enabled on both nodes. Found: {{ ha_enabled_nodes | map(attribute='name') | join(', ') }} enabled, {{ ha_disabled_nodes | map(attribute='name') | join(', ') }} disabled.
+          Expected HA enabled on both nodes. Found enabled: {{ ha_enabled_nodes | join(', ') }}; disabled: {{ ha_disabled_nodes | join(', ') }}.
           {% else %}
-          Expected HA disabled on all nodes. Found: {{ ha_enabled_nodes | map(attribute='name') | join(', ') }} with HA enabled.
+          Expected HA disabled on all nodes (>2). Found enabled: {{ ha_enabled_nodes | join(', ') }}.
           {% endif %}
 
     - name: Set facts for other health details
@@ -177,7 +177,7 @@
       ansible.builtin.debug:
         msg: "Overall Cluster Health: {{ overall_status }}"
 
-    # Optional: Fail the playbook if overall is Bad
+    # Optional: Fail if overall is Bad
     # - name: Fail if overall health is Bad
     #   ansible.builtin.fail:
     #     msg: "Cluster health check failed with Bad status."
