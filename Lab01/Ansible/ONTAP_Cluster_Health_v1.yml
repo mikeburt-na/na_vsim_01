@@ -34,15 +34,21 @@
     - name: Display overall cluster health information (optional)
       ansible.builtin.debug:
         var: ontap_health_info.ontap_info
-      when: false   # change to true only for debugging
+      when: false   # set to true only for debugging
 
     # ---------------------------------------------------------
-    # HA compliance logic (2-node vs >2-node)
+    # 1. Define the list of nodes first
+    # ---------------------------------------------------------
+    - name: Extract the list of nodes
+      ansible.builtin.set_fact:
+        all_nodes: "{{ ontap_health_info.ontap_info['cluster/nodes'].records | default([]) }}"
+
+    # ---------------------------------------------------------
+    # 2. Now compute node count and HA state (uses all_nodes)
     # ---------------------------------------------------------
     - name: Set facts for cluster node count and HA state
       ansible.builtin.set_fact:
-        all_nodes: "{{ ontap_health_info.ontap_info['cluster/nodes'].records | default([]) }}"
-        node_count: "{{ (ontap_health_info.ontap_info['cluster/nodes'].records | default([])) | length }}"
+        node_count: "{{ all_nodes | length }}"
         ha_enabled_nodes: >-
           {{ all_nodes
              | selectattr('ha', 'defined')
@@ -56,6 +62,9 @@
              | map(attribute='name')
              | list }}
 
+    # ---------------------------------------------------------
+    # 3. Determine expected HA configuration
+    # ---------------------------------------------------------
     - name: Determine expected HA state
       ansible.builtin.set_fact:
         expected_ha_enabled: "{{ node_count == 2 }}"
@@ -72,7 +81,7 @@
           {% endif %}
 
     # ---------------------------------------------------------
-    # Other health checks
+    # 4. Other health checks
     # ---------------------------------------------------------
     - name: Set facts for other health details
       ansible.builtin.set_fact:
