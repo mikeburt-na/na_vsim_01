@@ -62,7 +62,7 @@
              | list }}
 
     # ---------------------------------------------------------
-    # 3. Determine expected HA state (2 nodes = HA enabled)
+    # 3. Set expected HA state
     # ---------------------------------------------------------
     - name: Set expected HA state
       ansible.builtin.set_fact:
@@ -86,12 +86,13 @@
           {% endif %}
 
     # ---------------------------------------------------------
-    # 5. Other health checks
+    # 5. Other health checks (FIXED NODE HEALTH)
     # ---------------------------------------------------------
     - name: Set other health facts
       ansible.builtin.set_fact:
         critical_alerts: "{{ ontap_health_info.ontap_info.get('private/support/alerts', {}) | json_query('records[? severity == `ERROR` || severity == `EMERGENCY`].[node.name, severity, description]') | default([]) }}"
-        unhealthy_nodes: "{{ ontap_health_info.ontap_info.get('cluster/nodes', {}) | json_query('records[? state != `up`].[name, state]') | default([]) }}"
+        # FIXED: Only match nodes with 'state' field AND state != 'up'
+        unhealthy_nodes: "{{ ontap_health_info.ontap_info.get('cluster/nodes', {}) | json_query('records[? state && state != `up`].[name, state]') | default([]) }}"
         faulty_sensors: "{{ ontap_health_info.ontap_info.get('cluster/sensors', {}) | json_query('records[? state != `normal`].[node.name, name, state, value]') | default([]) }}"
         offline_aggregates: "{{ ontap_health_info.ontap_info.get('storage/aggregates', {}) | json_query('records[? state != `online`].[name, state]') | default([]) }}"
         offline_volumes: "{{ ontap_health_info.ontap_info.get('storage/volumes', {}) | json_query('records[? state != `online`].[name, state]') | default([]) }}"
@@ -117,7 +118,6 @@
     - name: Output HA Configuration
       ansible.builtin.debug:
         msg: "HA Configuration: {{ ha_status }} ({{ node_count }} nodes)"
-
     - name: Output HA Details (if Bad)
       ansible.builtin.debug:
         msg: "{{ ha_compliance_details }}"
