@@ -34,7 +34,7 @@
     - name: Display overall cluster health information (optional detailed output)
       ansible.builtin.debug:
         var: ontap_health_info.ontap_info
-      when: false  # Set to true to inspect the structure; change to false for simple output
+      when: true  # Set to true to inspect the structure; change to false for simple output
 
     - name: Set facts for health details
       ansible.builtin.set_fact:
