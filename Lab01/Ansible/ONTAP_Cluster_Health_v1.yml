@@ -20,9 +20,9 @@
         https: "{{ ontap_https }}"
         validate_certs: "{{ ontap_validate_certs }}"
         gather_subset:
-          - cluster                    # Cluster details (identity and overall health)
-          - cluster/nodes              # Node health and status, including HA failover
-          - cluster/sensors            # Environmental sensors (hardware health, replacing subsys_health_info)
+          - cluster                    # Cluster details
+          - cluster/nodes              # Node health and status
+          - cluster/sensors            # Environmental sensors
           - private/support/alerts     # Cluster alerts
           - support/autosupport/check  # AutoSupport status
           - storage/aggregates         # Aggregate status
@@ -34,9 +34,31 @@
     - name: Display overall cluster health information (optional detailed output)
       ansible.builtin.debug:
         var: ontap_health_info.ontap_info
-      when: true  # Set to true to inspect the structure; change to false for simple output
+      when: false  # Set to true to inspect; change to false for simple output
 
-    - name: Set facts for health details
+    - name: Set facts for cluster node count and HA state
+      ansible.builtin.set_fact:
+        all_nodes: "{{ ontap_health_info.ontap_info.get('cluster/nodes', {}).records | default([]) }}"
+        node_count: "{{ (ontap_health_info.ontap_info.get('cluster/nodes', {}).records | default([])) | length }}"
+        ha_enabled_nodes: "{{ ontap_health_info.ontap_info.get('cluster/nodes', {}).records | selectattr('is_ha_enabled', 'equalto', true) | list }}"
+        ha_disabled_nodes: "{{ ontap_health_info.ontap_info.get('cluster/nodes', {}).records | rejectattr('is_ha_enabled', 'equalto', true) | list }}"
+
+    - name: Determine expected HA state
+      ansible.builtin.set_fact:
+        expected_ha_enabled: "{{ true if node_count == 2 else false }}"
+        ha_compliance_status: >-
+          {{ 'Good' if 
+             (expected_ha_enabled and ha_enabled_nodes | length == 2) or 
+             (not expected_ha_enabled and ha_disabled_nodes | length == node_count)
+             else 'Bad' }}
+        ha_compliance_details: >-
+          {% if expected_ha_enabled %}
+          Expected HA enabled on both nodes. Found: {{ ha_enabled_nodes | map(attribute='name') | join(', ') }} enabled, {{ ha_disabled_nodes | map(attribute='name') | join(', ') }} disabled.
+          {% else %}
+          Expected HA disabled on all nodes. Found: {{ ha_enabled_nodes | map(attribute='name') | join(', ') }} with HA enabled.
+          {% endif %}
+
+    - name: Set facts for other health details
       ansible.builtin.set_fact:
         critical_alerts: "{{ ontap_health_info.ontap_info.get('private/support/alerts', {}) | json_query('records[? severity == `ERROR` || severity == `EMERGENCY`].[node.name, severity, description]') | default([]) }}"
         unhealthy_nodes: "{{ ontap_health_info.ontap_info.get('cluster/nodes', {}) | json_query('records[? state != `up`].[name, state]') | default([]) }}"
@@ -57,6 +79,18 @@
         disk_status: "{{ 'Bad' if broken_disks | length > 0 else 'Good' }}"
         shelf_status: "{{ 'Bad' if offline_shelves | length > 0 else 'Good' }}"
         autosupport_status: "{{ 'Bad' if autosupport_issues | length > 0 else 'Good' }}"
+        ha_status: "{{ ha_compliance_status }}"
+
+    # === Output Section ===
+
+    - name: Output HA Configuration Compliance
+      ansible.builtin.debug:
+        msg: "HA Configuration: {{ ha_status }} ({{ node_count }} nodes)"
+
+    - name: Output HA Compliance Details (if Bad)
+      ansible.builtin.debug:
+        msg: "{{ ha_compliance_details }}"
+      when: ha_status == 'Bad'
 
     - name: Output Cluster Alerts Status
       ansible.builtin.debug:
@@ -132,13 +166,18 @@
 
     - name: Determine Overall Status
       ansible.builtin.set_fact:
-        overall_status: "{{ 'Bad' if ('Bad' in [cluster_alerts_status, node_health_status, sensors_health_status, aggregate_status, volume_status, disk_status, shelf_status, autosupport_status]) else 'Good' }}"
+        overall_status: >-
+          {{ 'Bad' if ('Bad' in [
+               cluster_alerts_status, node_health_status, sensors_health_status,
+               aggregate_status, volume_status, disk_status, shelf_status,
+               autosupport_status, ha_status
+             ]) else 'Good' }}
 
     - name: Output Overall Status
       ansible.builtin.debug:
         msg: "Overall Cluster Health: {{ overall_status }}"
 
-    # Optional: Fail the playbook if overall is Bad (uncomment if needed)
+    # Optional: Fail the playbook if overall is Bad
     # - name: Fail if overall health is Bad
     #   ansible.builtin.fail:
     #     msg: "Cluster health check failed with Bad status."
