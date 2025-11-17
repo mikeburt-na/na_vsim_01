@@ -39,19 +39,25 @@
         all_nodes: "{{ ontap_health_info.ontap_info['cluster/nodes'].records | default([]) }}"
 
     # ---------------------------------------------------------
-    # 2. HA detection – works even when ha object is missing
+    # 2. Count how many nodes have the 'ha' object (means HA is configured)
     # ---------------------------------------------------------
-    - name: Determine HA status (robust)
+    - name: Count nodes with HA configured
       ansible.builtin.set_fact:
-        node_count: "{{ all_nodes | length }}"
         ha_capable_nodes: >-
           {{ all_nodes
-             | map(attribute='ha.giveback_state') | select('defined') | list
-             | length }}
+             | map(attribute='ha.giveback_state', default=none)
+             | select('string') | list | length }}
+
+    # ---------------------------------------------------------
+    # 3. Determine actual HA state
+    # ---------------------------------------------------------
+    - name: Set actual HA state
+      ansible.builtin.set_fact:
+        node_count: "{{ all_nodes | length }}"
         ha_status_actual: "{{ 'enabled' if ha_capable_nodes > 0 else 'disabled' }}"
 
     # ---------------------------------------------------------
-    # 3. Expected HA policy (2-node = must be enabled, >2 = must be disabled)
+    # 4. HA compliance policy: 2-node = must be enabled, >2 = must be disabled
     # ---------------------------------------------------------
     - name: Determine HA compliance
       ansible.builtin.set_fact:
@@ -68,7 +74,7 @@
           {% endif %}
 
     # ---------------------------------------------------------
-    # 4. Other health checks (node health now 100% correct)
+    # 5. All other health checks (node health is already fixed)
     # ---------------------------------------------------------
     - name: Set other health facts
       ansible.builtin.set_fact:
@@ -105,7 +111,69 @@
         msg: "{{ ha_compliance_details }}"
       when: ha_status == 'Bad'
 
-    # … (all the other output tasks remain exactly the same as before) …
+    - name: Output Cluster Alerts Status
+      ansible.builtin.debug:
+        msg: "Cluster Alerts: {{ cluster_alerts_status }}"
+    - name: Output Critical Alerts (if Bad)
+      ansible.builtin.debug:
+        msg: "Critical Alerts: {{ critical_alerts }}"
+      when: cluster_alerts_status == 'Bad'
+
+    - name: Output Node Health Status
+      ansible.builtin.debug:
+        msg: "Node Health: {{ node_health_status }}"
+    - name: Output Unhealthy Nodes (if Bad)
+      ansible.builtin.debug:
+        msg: "Unhealthy Nodes: {{ unhealthy_nodes }}"
+      when: node_health_status == 'Bad'
+
+    - name: Output Sensors Health Status
+      ansible.builtin.debug:
+        msg: "Sensors Health: {{ sensors_health_status }}"
+    - name: Output Faulty Sensors (if Bad)
+      ansible.builtin.debug:
+        msg: "Faulty Sensors: {{ faulty_sensors }}"
+      when: sensors_health_status == 'Bad'
+
+    - name: Output Aggregate Status
+      ansible.builtin.debug:
+        msg: "Aggregates: {{ aggregate_status }}"
+    - name: Output Offline Aggregates (if Bad)
+      ansible.builtin.debug:
+        msg: "Offline Aggregates: {{ offline_aggregates }}"
+      when: aggregate_status == 'Bad'
+
+    - name: Output Volume Status
+      ansible.builtin.debug:
+        msg: "Volumes: {{ volume_status }}"
+    - name: Output Offline Volumes (if Bad)
+      ansible.builtin.debug:
+        msg: "Offline Volumes: {{ offline_volumes }}"
+      when: volume_status == 'Bad'
+
+    - name: Output Disk Status
+      ansible.builtin.debug:
+        msg: "Disks: {{ disk_status }}"
+    - name: Output Broken Disks (if Bad)
+      ansible.builtin.debug:
+        msg: "Broken Disks: {{ broken_disks }}"
+      when: disk_status == 'Bad'
+
+    - name: Output Shelf Status
+      ansible.builtin.debug:
+        msg: "Shelves: {{ shelf_status }}"
+    - name: Output Offline Shelves (if Bad)
+      ansible.builtin.debug:
+        msg: "Offline Shelves: {{ offline_shelves }}"
+      when: shelf_status == 'Bad'
+
+    - name: Output AutoSupport Status
+      ansible.builtin.debug:
+        msg: "AutoSupport: {{ autosupport_status }}"
+    - name: Output AutoSupport Issues (if Bad)
+      ansible.builtin.debug:
+        msg: "AutoSupport Issues: {{ autosupport_issues }}"
+      when: autosupport_status == 'Bad'
 
     - name: Determine Overall Status
       ansible.builtin.set_fact:
@@ -118,8 +186,8 @@
       ansible.builtin.debug:
         msg: "Overall Cluster Health: {{ overall_status }}"
 
-    # Uncomment to fail playbook on Bad health
-    # - name: Fail if Bad
+    # Uncomment to make playbook fail on any Bad result
+    # - name: Fail if overall health is Bad
     #   ansible.builtin.fail:
     #     msg: "Cluster health check failed – see details above."
     #   when: overall_status == 'Bad'
