@@ -35,16 +35,14 @@
       ansible.builtin.set_fact:
         all_nodes: "{{ ontap_health_info.ontap_info['cluster/nodes'].records | default([]) }}"
 
-    # Count how many nodes have the ha.giveback_state field → HA configured
-    - name: Count nodes with HA configured
+    - name: Count nodes with HA configured (ha.giveback_state exists)
       ansible.builtin.set_fact:
         ha_capable_count_raw: >-
           {{ all_nodes
              | map(attribute='ha.giveback_state', default=none)
              | select('string') | list | length }}
 
-    # Force integer conversion (safe)
-    - name: Convert to real integer
+    - name: Convert to integer
       ansible.builtin.set_fact:
         ha_capable_count: "{{ ha_capable_count_raw | int }}"
 
@@ -52,30 +50,48 @@
       ansible.builtin.set_fact:
         node_count: "{{ all_nodes | length }}"
 
-    # HA state detection — using when + | int (100% safe)
-    - name: Set HA state to enabled
+    # ——— Determine actual HA state ———
+    - name: HA is enabled
       ansible.builtin.set_fact:
         ha_status_actual: enabled
       when: ha_capable_count | int > 0
 
-    - name: Set HA state to disabled
+    - name: HA is disabled
       ansible.builtin.set_fact:
         ha_status_actual: disabled
       when: ha_capable_count | int == 0
 
-    # HA compliance policy
-    - name: Determine HA compliance
+    # ——— HA compliance — completely free of any > or == inside Jinja2 ———
+    - name: HA compliance - 2-node cluster should have HA enabled
       ansible.builtin.set_fact:
-        ha_compliance_status: >-
-          {{ 'Good' if (node_count == 2 and ha_status_actual == 'enabled') or
-                       (node_count > 2 and ha_status_actual == 'disabled')
-             else 'Bad' }}
-        ha_compliance_details: >-
-          {% if node_count == 2 %}
-          2-node cluster → HA must be ENABLED. Current: {{ ha_status_actual | upper }}.
-          {% else %}
-          >2-node cluster → HA must be DISABLED. Current: {{ ha_status_actual | upper }}.
-          {% endif %}
+        ha_compliance_status: Good
+        ha_compliance_details: "2-node cluster → HA is ENABLED."
+      when: node_count == 2 and ha_status_actual == "enabled"
+
+    - name: HA compliance - 2-node cluster has HA disabled → Bad
+      ansible.builtin.set_fact:
+        ha_compliance_status: Bad
+        ha_compliance_details: "2-node cluster → HA must be ENABLED. Current: {{ ha_status_actual | upper }}."
+      when: node_count == 2 and ha_status_actual == "disabled"
+
+    - name: HA compliance - >2-node cluster should have HA disabled
+      ansible.builtin.set_fact:
+        ha_compliance_status: Good
+        ha_compliance_details: ">2-node cluster → HA is DISABLED."
+      when: node_count > 2 and ha_status_actual == "disabled"
+
+    - name: HA compliance - >2-node cluster has HA enabled → Bad
+      ansible.builtin.set_fact:
+        ha_compliance_status: Bad
+        ha_compliance_details: ">2-node cluster → HA must be DISABLED. Current: {{ ha_status_actual | upper }}."
+      when: node_count > 2 and ha_status_actual == "enabled"
+
+    # Default in case something weird happens (should never hit)
+    - name: HA compliance fallback
+      ansible.builtin.set_fact:
+        ha_compliance_status: Bad
+        ha_compliance_details: "Unable to determine HA state."
+      when: ha_compliance_status is not defined
 
     # ——— All other health checks (unchanged) ———
     - name: Set other health facts
@@ -103,14 +119,9 @@
 
     - name: Output HA Configuration
       ansible.builtin.debug:
-        msg: "HA Configuration: {{ ha_status }} ({{ node_count }} nodes) – Current HA: {{ ha_status_actual | upper }}"
+        msg: "HA Configuration: {{ ha_status }} ({{ node_count }} nodes) – {{ ha_compliance_details }}"
 
-    - name: Output HA Details (if Bad)
-      ansible.builtin.debug:
-        msg: "{{ ha_compliance_details }}"
-      when: ha_status == 'Bad'
-
-    # … keep all your other output tasks …
+    # … keep all your other output tasks exactly as they are …
 
     - name: Determine Overall Status
       ansible.builtin.set_fact:
