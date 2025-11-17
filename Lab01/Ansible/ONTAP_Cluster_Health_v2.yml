@@ -39,25 +39,25 @@
         all_nodes: "{{ ontap_health_info.ontap_info['cluster/nodes'].records | default([]) }}"
 
     # ---------------------------------------------------------
-    # 2. Count how many nodes have the 'ha' object (means HA is configured)
+    # 2. Count nodes that have the 'ha' object (means HA is configured)
     # ---------------------------------------------------------
     - name: Count nodes with HA configured
       ansible.builtin.set_fact:
         ha_capable_nodes: >-
-          {{ all_nodes
-             | map(attribute='ha.giveback_state', default=none)
-             | select('string') | list | length }}
+          {{ (all_nodes
+              | map(attribute='ha.giveback_state', default=none)
+              | select('string') | list | length) | int }}
 
     # ---------------------------------------------------------
     # 3. Determine actual HA state
     # ---------------------------------------------------------
-    - name: Set actual HA state
+    - name: Set actual HA state and node count
       ansible.builtin.set_fact:
         node_count: "{{ all_nodes | length }}"
         ha_status_actual: "{{ 'enabled' if ha_capable_nodes > 0 else 'disabled' }}"
 
     # ---------------------------------------------------------
-    # 4. HA compliance policy: 2-node = must be enabled, >2 = must be disabled
+    # 4. HA compliance: 2-node = must be enabled, >2 = must be disabled
     # ---------------------------------------------------------
     - name: Determine HA compliance
       ansible.builtin.set_fact:
@@ -74,7 +74,7 @@
           {% endif %}
 
     # ---------------------------------------------------------
-    # 5. All other health checks (node health is already fixed)
+    # 5. All other health checks (node health already fixed)
     # ---------------------------------------------------------
     - name: Set other health facts
       ansible.builtin.set_fact:
@@ -186,7 +186,7 @@
       ansible.builtin.debug:
         msg: "Overall Cluster Health: {{ overall_status }}"
 
-    # Uncomment to make playbook fail on any Bad result
+    # Uncomment to fail the playbook when health is Bad
     # - name: Fail if overall health is Bad
     #   ansible.builtin.fail:
     #     msg: "Cluster health check failed – see details above."
