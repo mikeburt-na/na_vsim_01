@@ -35,34 +35,33 @@
       ansible.builtin.set_fact:
         all_nodes: "{{ ontap_health_info.ontap_info['cluster/nodes'].records | default([]) }}"
 
-    # Count nodes that have the ha.giveback_state field → means HA is configured
+    # Count how many nodes have the ha.giveback_state field → HA configured
     - name: Count nodes with HA configured
       ansible.builtin.set_fact:
-        ha_capable_count: >-
+        ha_capable_count_raw: >-
           {{ all_nodes
              | map(attribute='ha.giveback_state', default=none)
              | select('string') | list | length }}
 
-    # Force it to be a real integer
-    - name: Convert HA count to integer
+    # Force integer conversion (safe)
+    - name: Convert to real integer
       ansible.builtin.set_fact:
-        ha_capable_count_int: "{{ ha_capable_count | int }}"
+        ha_capable_count: "{{ ha_capable_count_raw | int }}"
 
-    # Set node_count
     - name: Set node count
       ansible.builtin.set_fact:
         node_count: "{{ all_nodes | length }}"
 
-    # Determine actual HA state using when + two separate tasks (this kills the type error)
-    - name: HA is enabled
+    # HA state detection — using when + | int (100% safe)
+    - name: Set HA state to enabled
       ansible.builtin.set_fact:
-        ha_status_actual: "enabled"
-      when: ha_capable_count_int > 0
+        ha_status_actual: enabled
+      when: ha_capable_count | int > 0
 
-    - name: HA is disabled
+    - name: Set HA state to disabled
       ansible.builtin.set_fact:
-        ha_status_actual: "disabled"
-      when: ha_capable_count_int == 0
+        ha_status_actual: disabled
+      when: ha_capable_count | int == 0
 
     # HA compliance policy
     - name: Determine HA compliance
@@ -78,7 +77,7 @@
           >2-node cluster → HA must be DISABLED. Current: {{ ha_status_actual | upper }}.
           {% endif %}
 
-    # ——— ALL OTHER HEALTH CHECKS (unchanged) ———
+    # ——— All other health checks (unchanged) ———
     - name: Set other health facts
       ansible.builtin.set_fact:
         critical_alerts: "{{ ontap_health_info.ontap_info.get('private/support/alerts', {}) | json_query('records[? severity == `ERROR` || severity == `EMERGENCY`].[node.name, severity, description]') | default([]) }}"
@@ -102,7 +101,6 @@
         autosupport_status: "{{ 'Bad' if autosupport_issues | length > 0 else 'Good' }}"
         ha_status: "{{ ha_compliance_status }}"
 
-    # ——— OUTPUT ———
     - name: Output HA Configuration
       ansible.builtin.debug:
         msg: "HA Configuration: {{ ha_status }} ({{ node_count }} nodes) – Current HA: {{ ha_status_actual | upper }}"
@@ -112,7 +110,7 @@
         msg: "{{ ha_compliance_details }}"
       when: ha_status == 'Bad'
 
-    # … keep all your other output tasks exactly as before …
+    # … keep all your other output tasks …
 
     - name: Determine Overall Status
       ansible.builtin.set_fact:
