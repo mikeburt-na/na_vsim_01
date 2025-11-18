@@ -23,9 +23,11 @@ YELLOW = "\033[93m"
 RESET = "\033[0m"
 BOLD = "\033[1m"
 
-def get(endpoint):
+def get(endpoint, required=False):
     url = f"{BASE_URL}{endpoint}"
     r = session.get(url)
+    if r.status_code == 404 and not required:
+        return []
     r.raise_for_status()
     return r.json().get("records", []) if "records" in r.json() else r.json()
 
@@ -37,18 +39,23 @@ try:
     nodes = get("/cluster/nodes")
     node_count = len(nodes)
 
-    # === CORRECT WAY TO DETECT HA / STORAGE FAILOVER ===
-    failover_status = get("/storage/failover")
-    ha_enabled = any(f.get("enabled", False) for f in failover_status)
+    # === CORRECT HA DETECTION THAT WORKS ON ALL ONTAP VERSIONS ===
+    ha_enabled = False
+    try:
+        failover = get("/storage/failover")
+        ha_enabled = any(node.get("enabled", False) for node in failover)
+    except:
+        # Fallback: check node HA fields (works on older versions and vsim)
+        ha_enabled = any("ha" in node and node["ha"].get("enabled", False) for node in nodes)
 
     if node_count == 2:
         ha_status = "Good" if ha_enabled else "Bad"
-        ha_detail = "HA & Storage Failover ENABLED" if ha_enabled else "HA & Storage Failover DISABLED"
+        ha_detail = "HA & Storage Failover ENABLED" if ha_enabled else "HA & Storage Failover DISABLED (expected ENABLED)"
     else:
         ha_status = "Good" if not ha_enabled else "Bad"
-        ha_detail = "HA & Storage Failover correctly DISABLED" if not ha_enabled else "HA & Storage Failover incorrectly ENABLED"
+        ha_detail = "HA correctly DISABLED" if not ha_enabled else "HA incorrectly ENABLED"
 
-    # === Rest of checks (unchanged) ===
+    # === Rest of checks ===
     unhealthy_nodes = [n for n in nodes if n.get("state") != "up"]
     node_status = "Good" if not unhealthy_nodes else "Bad"
 
