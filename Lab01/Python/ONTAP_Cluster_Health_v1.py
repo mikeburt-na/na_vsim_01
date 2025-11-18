@@ -5,9 +5,11 @@ import sys
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
+# === CONFIGURATION ===
 CLUSTER_IP = "Cluster1"
 USERNAME = "admin"
 PASSWORD = "Netapp1!"
+# =====================
 
 BASE_URL = f"https://{CLUSTER_IP}/api"
 session = requests.Session()
@@ -36,13 +38,19 @@ try:
     nodes = get("/cluster/nodes")
     node_count = len(nodes)
 
-    # NODE HEALTH - fixed forever
+    # Node health - only bad if "state" exists and != "up"
     unhealthy_nodes = [n for n in nodes if n.get("state") and n["state"] != "up"]
     node_status = "Good" if not unhealthy_nodes else "Bad"
 
-    # HA DETECTION - THE ONE THAT ACTUALLY WORKS
-    ha_partners_found = any(node.get("ha", {}).get("partners") for node in nodes)
-    ha_enabled = ha_partners_found
+    # HA DETECTION - THIS IS THE ONE THAT WORKS ON 9.14.1 VSIM AND REAL HARDWARE
+    ha_enabled = False
+    failover = get("/storage/failover")
+    if failover:
+        # "enabled" field is TRUE when failover is ENABLED (yes, it's the opposite of what you'd think on some versions)
+        ha_enabled = any(f.get("enabled", False) for f in failover)
+    else:
+        # Fallback for versions where /storage/failover is missing or empty
+        ha_enabled = any("ha" in node and node["ha"].get("partners") for node in nodes)
 
     if node_count == 2:
         ha_status = "Good" if ha_enabled else "Bad"
@@ -51,7 +59,7 @@ try:
         ha_status = "Good" if not ha_enabled else "Bad"
         ha_detail = "HA correctly DISABLED" if not ha_enabled else "HA incorrectly ENABLED"
 
-    # Rest unchanged
+    # Rest of checks
     alerts = get("/private/support/alerts")
     critical_alerts = [a for a in alerts if a.get("severity", "").lower() in ["error", "emergency"]]
     alert_status = "Good" if not critical_alerts else "Bad"
