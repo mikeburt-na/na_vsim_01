@@ -38,15 +38,15 @@ try:
     nodes = get("/cluster/nodes")
     node_count = len(nodes)
 
-    # FIXED: Node health - only bad if "state" exists and is not "up"
+    # Node health - only bad if "state" exists and != "up"
     unhealthy_nodes = [n for n in nodes if n.get("state") and n["state"] != "up"]
     node_status = "Good" if not unhealthy_nodes else "Bad"
 
-    # CORRECT HA DETECTION FOR ALL ONTAP VERSIONS
-    failover_records = get("/storage/failover")
-    # When failover is ENABLED → "enabled" key is MISSING
-    # When failover is DISABLED → "enabled": false
-    ha_enabled = all("enabled" not in f or f.get("enabled", True) for f in failover_records)
+    # *** THIS IS THE CORRECT WAY TO DETECT HA / STORAGE FAILOVER ***
+    failover = get("/storage/failover")
+    # When HA is ENABLED  → "is_enabled": true
+    # When HA is DISABLED → "is_enabled": false
+    ha_enabled = any(f.get("is_enabled", False) for f in failover)
 
     if node_count == 2:
         ha_status = "Good" if ha_enabled else "Bad"
