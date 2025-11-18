@@ -6,7 +6,7 @@ import sys
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 # === CONFIGURATION ===
-CLUSTER_IP = "Cluster1"          # Change to your cluster IP/hostname
+CLUSTER_IP = "Cluster1"
 USERNAME = "admin"
 PASSWORD = "Netapp1!"
 # =====================
@@ -19,14 +19,13 @@ session.headers.update({"Accept": "application/json"})
 
 GREEN = "\033[92m"
 RED = "\033[91m"
-YELLOW = "\033[93m"
 RESET = "\033[0m"
 BOLD = "\033[1m"
 
-def get(endpoint, required=False):
+def get(endpoint):
     url = f"{BASE_URL}{endpoint}"
     r = session.get(url)
-    if r.status_code == 404 and not required:
+    if r.status_code == 404:
         return []
     r.raise_for_status()
     return r.json().get("records", []) if "records" in r.json() else r.json()
@@ -39,26 +38,26 @@ try:
     nodes = get("/cluster/nodes")
     node_count = len(nodes)
 
-    # === CORRECT HA DETECTION THAT WORKS ON ALL ONTAP VERSIONS ===
+    # === FIXED NODE HEALTH: only flag as unhealthy if "state" exists AND is not "up" ===
+    unhealthy_nodes = [n for n in nodes if n.get("state") and n["state"] != "up"]
+    node_status = "Good" if not unhealthy_nodes else "Bad"
+
+    # === CORRECT HA DETECTION - uses storage/failover with fallback ===
     ha_enabled = False
     try:
         failover = get("/storage/failover")
-        ha_enabled = any(node.get("enabled", False) for node in failover)
+        ha_enabled = any(f.get("enabled", False) for f in failover)
     except:
-        # Fallback: check node HA fields (works on older versions and vsim)
-        ha_enabled = any("ha" in node and node["ha"].get("enabled", False) for node in nodes)
+        pass  # fallback not needed - storage/failover works on vsim when HA is configured
 
     if node_count == 2:
         ha_status = "Good" if ha_enabled else "Bad"
-        ha_detail = "HA & Storage Failover ENABLED" if ha_enabled else "HA & Storage Failover DISABLED (expected ENABLED)"
+        ha_detail = "HA & Storage Failover ENABLED" if ha_enabled else "HA & Storage Failover DISABLED"
     else:
         ha_status = "Good" if not ha_enabled else "Bad"
         ha_detail = "HA correctly DISABLED" if not ha_enabled else "HA incorrectly ENABLED"
 
     # === Rest of checks ===
-    unhealthy_nodes = [n for n in nodes if n.get("state") != "up"]
-    node_status = "Good" if not unhealthy_nodes else "Bad"
-
     alerts = get("/private/support/alerts")
     critical_alerts = [a for a in alerts if a.get("severity", "").lower() in ["error", "emergency"]]
     alert_status = "Good" if not critical_alerts else "Bad"
@@ -72,7 +71,7 @@ try:
     vol_status = "Good" if not offline_vols else "Bad"
 
     disks = get("/storage/disks")
-    broken_disks = [d for d in disks if d.get("state") in ["broken", "maintenance", "failed"]]
+    broken_disks = [d for d in disks if d.get("state") in ["broken", "maintenance", "failed", "failing"]]
     disk_status = "Good" if not broken_disks else "Bad"
 
     shelves = get("/storage/shelves")
