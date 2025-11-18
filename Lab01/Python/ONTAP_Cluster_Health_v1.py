@@ -38,17 +38,15 @@ try:
     nodes = get("/cluster/nodes")
     node_count = len(nodes)
 
-    # === FIXED NODE HEALTH: only flag as unhealthy if "state" exists AND is not "up" ===
+    # FIXED: Node health - only bad if "state" exists and is not "up"
     unhealthy_nodes = [n for n in nodes if n.get("state") and n["state"] != "up"]
     node_status = "Good" if not unhealthy_nodes else "Bad"
 
-    # === CORRECT HA DETECTION - uses storage/failover with fallback ===
-    ha_enabled = False
-    try:
-        failover = get("/storage/failover")
-        ha_enabled = any(f.get("enabled", False) for f in failover)
-    except:
-        pass  # fallback not needed - storage/failover works on vsim when HA is configured
+    # CORRECT HA DETECTION FOR ALL ONTAP VERSIONS
+    failover_records = get("/storage/failover")
+    # When failover is ENABLED → "enabled" key is MISSING
+    # When failover is DISABLED → "enabled": false
+    ha_enabled = all("enabled" not in f or f.get("enabled", True) for f in failover_records)
 
     if node_count == 2:
         ha_status = "Good" if ha_enabled else "Bad"
@@ -57,7 +55,7 @@ try:
         ha_status = "Good" if not ha_enabled else "Bad"
         ha_detail = "HA correctly DISABLED" if not ha_enabled else "HA incorrectly ENABLED"
 
-    # === Rest of checks ===
+    # Rest of checks (unchanged)
     alerts = get("/private/support/alerts")
     critical_alerts = [a for a in alerts if a.get("severity", "").lower() in ["error", "emergency"]]
     alert_status = "Good" if not critical_alerts else "Bad"
@@ -82,7 +80,6 @@ try:
     bad_sensors = [s for s in sensors if s.get("state") != "normal"]
     sensor_status = "Good" if not bad_sensors else "Bad"
 
-    # Overall
     all_statuses = [node_status, ha_status, alert_status, agg_status, vol_status, disk_status, shelf_status, sensor_status]
     overall = "Good" if all(s == "Good" for s in all_statuses) else "Bad"
 
