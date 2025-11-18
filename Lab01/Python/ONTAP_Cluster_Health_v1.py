@@ -5,11 +5,9 @@ import sys
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
-# === CONFIGURATION ===
 CLUSTER_IP = "Cluster1"
 USERNAME = "admin"
 PASSWORD = "Netapp1!"
-# =====================
 
 BASE_URL = f"https://{CLUSTER_IP}/api"
 session = requests.Session()
@@ -38,15 +36,13 @@ try:
     nodes = get("/cluster/nodes")
     node_count = len(nodes)
 
-    # Node health - only bad if "state" exists and != "up"
+    # NODE HEALTH - fixed forever
     unhealthy_nodes = [n for n in nodes if n.get("state") and n["state"] != "up"]
     node_status = "Good" if not unhealthy_nodes else "Bad"
 
-    # *** THIS IS THE CORRECT WAY TO DETECT HA / STORAGE FAILOVER ***
-    failover = get("/storage/failover")
-    # When HA is ENABLED  → "is_enabled": true
-    # When HA is DISABLED → "is_enabled": false
-    ha_enabled = any(f.get("is_enabled", False) for f in failover)
+    # HA DETECTION - THE ONE THAT ACTUALLY WORKS
+    ha_partners_found = any(node.get("ha", {}).get("partners") for node in nodes)
+    ha_enabled = ha_partners_found
 
     if node_count == 2:
         ha_status = "Good" if ha_enabled else "Bad"
@@ -55,7 +51,7 @@ try:
         ha_status = "Good" if not ha_enabled else "Bad"
         ha_detail = "HA correctly DISABLED" if not ha_enabled else "HA incorrectly ENABLED"
 
-    # Rest of checks (unchanged)
+    # Rest unchanged
     alerts = get("/private/support/alerts")
     critical_alerts = [a for a in alerts if a.get("severity", "").lower() in ["error", "emergency"]]
     alert_status = "Good" if not critical_alerts else "Bad"
@@ -85,14 +81,14 @@ try:
 
     print(f"{BOLD}NetApp ONTAP Cluster Health Check - {CLUSTER_IP}{RESET}\n")
 
-    print_status("Node Health", node_status, f"({len(unhealthy_nodes)} unhealthy)" if unhealthy_nodes else "")
+    print_status("Node Health", node_status)
     print_status("HA Configuration", ha_status, f"({node_count} nodes) – {ha_detail}")
-    print_status("Critical Alerts", alert_status, f"({len(critical_alerts)} found)" if critical_alerts else "")
-    print_status("Aggregates", agg_status, f"({len(offline_aggs)} offline)" if offline_aggs else "")
-    print_status("Volumes", vol_status, f"({len(offline_vols)} offline)" if offline_vols else "")
-    print_status("Disks", disk_status, f"({len(broken_disks)} failed)" if broken_disks else "")
-    print_status("Shelves", shelf_status, f"({len(bad_shelves)} bad)" if bad_shelves else "")
-    print_status("Sensors", sensor_status, f"({len(bad_sensors)} faulty)" if bad_sensors else "")
+    print_status("Critical Alerts", alert_status)
+    print_status("Aggregates", agg_status)
+    print_status("Volumes", vol_status)
+    print_status("Disks", disk_status)
+    print_status("Shelves", shelf_status)
+    print_status("Sensors", sensor_status)
 
     print(f"\n{BOLD}Overall Cluster Health:", end=" ")
     if overall == "Good":
