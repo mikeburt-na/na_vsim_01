@@ -26,31 +26,25 @@ def get(endpoint):
     url = f"{BASE_URL}{endpoint}"
     r = session.get(url)
     if r.status_code == 404:
-        return []
+        return {}
     r.raise_for_status()
-    return r.json().get("records", []) if "records" in r.json() else r.json()
+    return r.json()
 
 def print_status(component, status, details=""):
     color = GREEN if status == "Good" else RED
     print(f"{color}{BOLD}{component:<20}: {status}{RESET} {details}")
 
 try:
-    nodes = get("/cluster/nodes")
+    nodes = get("/cluster/nodes")["records"]
     node_count = len(nodes)
 
-    # Node health - only bad if "state" exists and != "up"
+    # Node health
     unhealthy_nodes = [n for n in nodes if n.get("state") and n["state"] != "up"]
     node_status = "Good" if not unhealthy_nodes else "Bad"
 
-    # FINAL HA DETECTION - THIS WORKS ON 9.14.1+ VSIM AND HARDWARE
-    ha_enabled = False
-    failover = get("/storage/failover")
-    if failover:
-        # The "enabled" field is FALSE when failover is DISABLED, TRUE when ENABLED (tested on 9.14.1 vsim)
-        ha_enabled = any(f.get("enabled", False) for f in failover)
-    else:
-        # Very old versions fallback
-        ha_enabled = any("ha" in node and node["ha"].get("partners") for node in nodes)
+    # CORRECT HA CHECK FOR ONTAP 9.15+ / 9.16.1
+    ha_info = get("/cluster/ha")
+    ha_enabled = ha_info.get("enabled", False)   # This is the official field
 
     if node_count == 2:
         ha_status = "Good" if ha_enabled else "Bad"
@@ -60,34 +54,34 @@ try:
         ha_detail = "HA correctly DISABLED" if not ha_enabled else "HA incorrectly ENABLED"
 
     # Rest of checks
-    alerts = get("/private/support/alerts/alerts")
+    alerts = get("/private/support/alerts").get("records", [])
     critical_alerts = [a for a in alerts if a.get("severity", "").lower() in ["error", "emergency"]]
     alert_status = "Good" if not critical_alerts else "Bad"
 
-    aggs = get("/storage/aggregates")
+    aggs = get("/storage/aggregates").get("records", [])
     offline_aggs = [a for a in aggs if a.get("state") != "online"]
     agg_status = "Good" if not offline_aggs else "Bad"
 
-    vols = get("/storage/volumes")
+    vols = get("/storage/volumes").get("records", [])
     offline_vols = [v for v in vols if v.get("state") != "online"]
     vol_status = "Good" if not offline_vols else "Bad"
 
-    disks = get("/storage/disks")
+    disks = get("/storage/disks").get("records", [])
     broken_disks = [d for d in disks if d.get("state") in ["broken", "maintenance", "failed", "failing"]]
     disk_status = "Good" if not broken_disks else "Bad"
 
-    shelves = get("/storage/shelves")
+    shelves = get("/storage/shelves").get("records", [])
     bad_shelves = [s for s in shelves if s.get("state") != "online"]
     shelf_status = "Good" if not bad_shelves else "Bad"
 
-    sensors = get("/cluster/sensors")
+    sensors = get("/cluster/sensors").get("records", [])
     bad_sensors = [s for s in sensors if s.get("state") != "normal"]
     sensor_status = "Good" if not bad_sensors else "Bad"
 
     all_statuses = [node_status, ha_status, alert_status, agg_status, vol_status, disk_status, shelf_status, sensor_status]
     overall = "Good" if all(s == "Good" for s in all_statuses) else "Bad"
 
-    print(f"{BOLD}NetApp ONTAP Cluster Health Check - {CLUSTER_IP}{RESET}\n")
+    print(f"{BOLD}NetApp ONTAP Cluster Health Check - {CLUSTER_IP} (9.16.1+){RESET}\n")
 
     print_status("Node Health", node_status)
     print_status("HA Configuration", ha_status, f"({node_count} nodes) – {ha_detail}")
