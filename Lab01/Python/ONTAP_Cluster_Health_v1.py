@@ -57,7 +57,7 @@ try:
     critical_alerts = [a for a in alerts if a.get("severity", "").lower() in ["error", "emergency"]]
     alert_status = "Good" if not critical_alerts else "Bad"
 
-    aggs = get("/api/storage/aggregates?fields=state")
+    aggs = get("/storage/aggregates?fields=state")
     offline_aggs = [a for a in aggs if a.get("state") != "online"]
     agg_status = "Good" if not offline_aggs else "Bad"
 
