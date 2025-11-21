@@ -90,7 +90,7 @@ try:
     print_status("Disks", disk_status)
     print_status("Shelves", shelf_status)
     print_status("Sensors", sensor_status)
-    print_status("Test01", offline_aggs)
+    print_status("Test01", aggs)
 
     print(f"\n{BOLD}Overall Cluster Health:", end=" ")
     if overall == "Good":
