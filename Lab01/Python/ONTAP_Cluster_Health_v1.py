@@ -60,7 +60,7 @@ try:
     aggs = get("/storage/aggregates")
     offline_aggs = [a for a in aggs if a.get("state") != "online"]
     agg_status = "Good" if not offline_aggs else "Bad"
-    agg_state = aggs.get("state")
+    agg_state = [b for b in (aggs or {}).get("state", [])]
 
     vols = get("/storage/volumes")
     offline_vols = [v for v in vols if v.get("state") != "online"]
